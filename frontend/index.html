@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JATA Ayurveda — Premium Ayurvedic Care & Wellness</title>
+    <meta
+      name="description"
+      content="Physician-led Ayurvedic clinic and pharmacy. Panchakarma, chronic disease reversal and premium herbal formulations rooted in classical shastra and modern science."
+    />
+    <meta name="author" content="JATA Ayurveda" />
+    <meta name="theme-color" content="#1B5E20" />
+    <meta property="og:title" content="JATA Ayurveda — Premium Ayurvedic Care" />
+    <meta
+      property="og:description"
+      content="Panchakarma, chronic disease reversal, women's health, and premium Ayurvedic products — delivered with modern precision."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600&display=swap"
+    />
+
+    <!-- Razorpay Checkout SDK, used on the /checkout page -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <style>
+      /* Boot loader — shown instantly on page load (before the JS bundle
+         finishes downloading/parsing) and removed once the app has mounted.
+         Lives here rather than in a React component so it appears with zero
+         dependency on React/bundle load time.
+
+         Colors are the site's own brand palette (deep green + warm gold on
+         cream), not the rainbow palette from the original design mockup —
+         five saturated primary colors (red/yellow/cyan/green/blue) would
+         clash badly against this site's earthy Ayurveda identity. The
+         reveal/shimmer *mechanics* are kept faithful to the original. */
+      :root {
+        --loader-bg: #faf7ef;
+        --loader-ink: #16241c;
+        --loader-green: #1b5e20;
+        --loader-gold: #c9a227;
+      }
+
+      .app-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--loader-bg);
+        transition: opacity 0.5s ease;
+      }
+      .app-loader--hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader-wrapper {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        row-gap: 0.25em;
+        column-gap: 0.45em;
+        max-width: 90vw;
+        padding: 1.5rem;
+
+        font-family: "Poppins", sans-serif;
+        /* Responsive across phone / tablet / desktop instead of a fixed
+           scale() that could overflow small screens. */
+        font-size: clamp(1.15rem, 5.5vw, 2.35rem);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        user-select: none;
+        color: var(--loader-ink);
+      }
+
+      .loader-word {
+        display: inline-flex;
+        white-space: nowrap;
+      }
+
+      /* Animated shimmer mask, sized to cover the whole wordmark regardless
+         of how the two words wrap on narrow screens. */
+      .loader-shimmer {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background-color: transparent;
+        mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 6px, black 9px);
+        -webkit-mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 6px, black 9px);
+      }
+
+      .loader-shimmer::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle at 50% 50%, var(--loader-gold) 0%, transparent 50%),
+          radial-gradient(circle at 45% 45%, var(--loader-green) 0%, transparent 45%),
+          radial-gradient(circle at 55% 55%, var(--loader-gold) 0%, transparent 45%);
+        mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
+        -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
+        animation: loader-shimmer-move 2s infinite alternate, loader-shimmer-fade 4s infinite;
+        animation-timing-function: cubic-bezier(0.6, 0.8, 0.5, 1);
+      }
+
+      @keyframes loader-shimmer-move {
+        0% { transform: translate(-55%); }
+        100% { transform: translate(55%); }
+      }
+      @keyframes loader-shimmer-fade {
+        0%, 100% { opacity: 0; }
+        15% { opacity: 1; }
+        65% { opacity: 0; }
+      }
+
+      .loader-letter {
+        display: inline-block;
+        opacity: 0;
+        animation: loader-letter-anim 4s infinite linear;
+        z-index: 2;
+      }
+
+      @keyframes loader-letter-anim {
+        0% { filter: blur(0px); opacity: 0; }
+        5% {
+          opacity: 1;
+          text-shadow: 0 0 6px rgba(22, 36, 28, 0.18);
+          filter: blur(0px);
+          transform: scale(1.1) translateY(-2px);
+        }
+        20% { opacity: 0.2; filter: blur(0px); }
+        100% { filter: blur(5px); opacity: 0; }
+      }
+
+      /* Respect the OS-level "reduce motion" accessibility setting: show a
+         simple static wordmark with a gentle fade instead of the animation. */
+      @media (prefers-reduced-motion: reduce) {
+        .loader-letter { animation: none; opacity: 1; }
+        .loader-shimmer, .loader-shimmer::after { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app-loader" class="app-loader" role="status" aria-live="polite" aria-label="Loading JATAS Ayurvedic">
+      <div class="loader-wrapper">
+        <span class="loader-word" id="loader-word-1"></span>
+        <span class="loader-word" id="loader-word-2"></span>
+        <div class="loader-shimmer"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        // Build each word out of individually-timed letter spans (rather
+        // than typing them out by hand in the HTML) so the two words can
+        // wrap onto separate lines on narrow phones without ever breaking
+        // in the middle of a word, while keeping one continuous reveal
+        // timing across both words.
+        function buildWord(containerId, text, startIndex) {
+          var el = document.getElementById(containerId);
+          if (!el) return startIndex;
+          text.split("").forEach(function (ch, i) {
+            var span = document.createElement("span");
+            span.className = "loader-letter";
+            span.textContent = ch;
+            span.style.animationDelay = ((startIndex + i) * 0.105 + 0.1).toFixed(3) + "s";
+            el.appendChild(span);
+          });
+          return startIndex + text.length;
+        }
+        var next = buildWord("loader-word-1", "JATAS", 0);
+        buildWord("loader-word-2", "AYURVEDIC", next);
+      })();
+    </script>
+
+    <script>
+      // Hides the boot loader once the React app signals it has mounted
+      // (see main.jsx). A minimum visible time keeps the animation from
+      // flashing by unreadably fast on quick connections; a maximum wait
+      // guarantees the loader is never stuck on-screen if that signal is
+      // ever missed for some reason.
+      (function () {
+        var loaderEl = document.getElementById("app-loader");
+        if (!loaderEl) return;
+        var MIN_VISIBLE_MS = 1100;
+        var MAX_WAIT_MS = 6000;
+        var start = Date.now();
+        var hidden = false;
+
+        function hideLoader() {
+          if (hidden) return;
+          hidden = true;
+          loaderEl.classList.add("app-loader--hide");
+          setTimeout(function () {
+            if (loaderEl.parentNode) loaderEl.parentNode.removeChild(loaderEl);
+          }, 500);
+        }
+
+        window.addEventListener(
+          "app:ready",
+          function () {
+            var wait = Math.max(0, MIN_VISIBLE_MS - (Date.now() - start));
+            setTimeout(hideLoader, wait);
+          },
+          { once: true }
+        );
+
+        setTimeout(hideLoader, MAX_WAIT_MS);
+      })();
+    </script>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

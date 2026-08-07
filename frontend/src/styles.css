@@ -1,0 +1,249 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * JATA Ayurveda — Design System
+ * Deep Forest Green + Gold, warm cream backgrounds, editorial feel.
+ * All colors in oklch. Use semantic tokens only — never hardcoded colors.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-sage: var(--sage);
+  --color-cream: var(--cream);
+  --color-beige: var(--beige);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Warm cream background instead of pure white */
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.22 0.03 150);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 150);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 150);
+
+  /* Deep Forest Green #1B5E20 */
+  --primary: oklch(0.38 0.11 148);
+  --primary-foreground: oklch(0.985 0.008 85);
+  --primary-glow: oklch(0.52 0.13 148);
+
+  /* Sage secondary */
+  --secondary: oklch(0.92 0.02 140);
+  --secondary-foreground: oklch(0.28 0.06 148);
+
+  /* Light beige muted */
+  --muted: oklch(0.94 0.014 85);
+  --muted-foreground: oklch(0.45 0.02 140);
+
+  /* Gold accent #C9A227 */
+  --accent: oklch(0.72 0.13 85);
+  --accent-foreground: oklch(0.22 0.03 150);
+  --gold: oklch(0.72 0.13 85);
+  --gold-foreground: oklch(0.22 0.03 150);
+
+  --sage: oklch(0.78 0.045 145);
+  --cream: oklch(0.97 0.015 85);
+  --beige: oklch(0.92 0.025 78);
+
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.985 0.008 85);
+
+  --border: oklch(0.9 0.015 90);
+  --input: oklch(0.9 0.015 90);
+  --ring: oklch(0.38 0.11 148);
+
+  --sidebar: oklch(0.97 0.015 85);
+  --sidebar-foreground: oklch(0.22 0.03 150);
+  --sidebar-primary: oklch(0.38 0.11 148);
+  --sidebar-primary-foreground: oklch(0.985 0.008 85);
+  --sidebar-accent: oklch(0.92 0.02 140);
+  --sidebar-accent-foreground: oklch(0.28 0.06 148);
+  --sidebar-border: oklch(0.9 0.015 90);
+  --sidebar-ring: oklch(0.38 0.11 148);
+
+  /* Gradients + shadows */
+  --gradient-primary: linear-gradient(
+    135deg,
+    oklch(0.38 0.11 148) 0%,
+    oklch(0.5 0.12 148) 100%
+  );
+  --gradient-warm: linear-gradient(
+    180deg,
+    oklch(0.985 0.008 85) 0%,
+    oklch(0.94 0.02 82) 100%
+  );
+  --gradient-gold: linear-gradient(
+    135deg,
+    oklch(0.72 0.13 85) 0%,
+    oklch(0.82 0.11 90) 100%
+  );
+  --shadow-elegant: 0 20px 50px -20px oklch(0.38 0.11 148 / 0.25);
+  --shadow-soft: 0 8px 30px -12px oklch(0.22 0.03 150 / 0.12);
+  --shadow-gold: 0 10px 30px -10px oklch(0.72 0.13 85 / 0.35);
+}
+
+.dark {
+  --background: oklch(0.16 0.02 150);
+  --foreground: oklch(0.96 0.01 85);
+  --card: oklch(0.22 0.03 150);
+  --card-foreground: oklch(0.96 0.01 85);
+  --popover: oklch(0.22 0.03 150);
+  --popover-foreground: oklch(0.96 0.01 85);
+  --primary: oklch(0.65 0.13 148);
+  --primary-foreground: oklch(0.16 0.02 150);
+  --primary-glow: oklch(0.75 0.12 148);
+  --secondary: oklch(0.28 0.04 148);
+  --secondary-foreground: oklch(0.96 0.01 85);
+  --muted: oklch(0.26 0.03 150);
+  --muted-foreground: oklch(0.72 0.02 90);
+  --accent: oklch(0.78 0.13 85);
+  --accent-foreground: oklch(0.16 0.02 150);
+  --gold: oklch(0.78 0.13 85);
+  --gold-foreground: oklch(0.16 0.02 150);
+  --sage: oklch(0.55 0.05 145);
+  --cream: oklch(0.24 0.02 85);
+  --beige: oklch(0.28 0.03 80);
+  --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.96 0.01 85);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.65 0.13 148);
+  --sidebar: oklch(0.22 0.03 150);
+  --sidebar-foreground: oklch(0.96 0.01 85);
+  --sidebar-primary: oklch(0.65 0.13 148);
+  --sidebar-primary-foreground: oklch(0.16 0.02 150);
+  --sidebar-accent: oklch(0.28 0.04 148);
+  --sidebar-accent-foreground: oklch(0.96 0.01 85);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.65 0.13 148);
+
+  /* Dark-mode gradients — without these, cards like the homepage "Research"
+     panel (bg-[var(--gradient-primary)] + text-primary-foreground) would end
+     up with dark text on a dark gradient, since --primary-foreground flips
+     to a dark color above but the gradient itself didn't. Not currently
+     reachable (no dark-mode toggle exists in this app yet), but correct
+     regardless if one is ever added. */
+  --gradient-primary: linear-gradient(
+    135deg,
+    oklch(0.65 0.13 148) 0%,
+    oklch(0.5 0.12 148) 100%
+  );
+  --gradient-warm: linear-gradient(
+    180deg,
+    oklch(0.22 0.03 150) 0%,
+    oklch(0.26 0.03 150) 100%
+  );
+  --gradient-gold: linear-gradient(
+    135deg,
+    oklch(0.78 0.13 85) 0%,
+    oklch(0.7 0.11 85) 100%
+  );
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility glass-nav {
+  background-color: color-mix(in oklab, var(--background) 78%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+@utility gold-underline {
+  position: relative;
+  display: inline-block;
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 2px;
+    background: var(--gradient-gold);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.35s ease;
+  }
+  &:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}

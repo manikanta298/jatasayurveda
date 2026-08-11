@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Printer } from "lucide-react";
-import { getAdminOrder, updateOrderStatus as updateOrderStatusApi } from "@/lib/queries";
+import { getAdminOrder, updateOrderStatus as updateOrderStatusApi, updateOrderPaymentStatus } from "@/lib/queries";
 import { formatINRFromPaise, formatDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export default function OrderDetail() {
   const [newStatus, setNewStatus] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [collecting, setCollecting] = useState(false);
 
   async function handleUpdate() {
     if (!newStatus) return;
@@ -137,9 +138,32 @@ export default function OrderDetail() {
             <p className="text-sm">{order.shippingAddress?.country}</p>
           </Card>
           <Card title="Payment">
+            <Row label="Method" value={order.paymentMethod === "cod" ? "Cash on Delivery" : order.paymentMethod} small />
+            <Row label="Payment status" value={order.paymentStatus === "collected" ? "Collected" : order.paymentStatus === "paid" ? "Online Payment - Paid" : "Online Payment - Pending"} small />
             <Row label="Razorpay Order" value={order.razorpayOrderId ?? "—"} small />
             <Row label="Razorpay Payment" value={order.razorpayPaymentId ?? "—"} small />
             <Row label="Paid at" value={order.paidAt ? formatDateTime(order.paidAt) : "—"} small />
+            {order.paymentMethod === "cod" && order.paymentStatus !== "collected" && (
+              <Button
+                className="mt-3 w-full rounded-full"
+                disabled={collecting}
+                onClick={async () => {
+                  setCollecting(true);
+                  try {
+                    await updateOrderPaymentStatus(id, "collected");
+                    toast.success("Cash marked as Collected");
+                    qc.invalidateQueries({ queryKey: ["admin-order", id] });
+                    qc.invalidateQueries({ queryKey: ["admin-orders"] });
+                  } catch (e) {
+                    toast.error(e.message || "Could not update payment status");
+                  } finally {
+                    setCollecting(false);
+                  }
+                }}
+              >
+                {collecting ? "Saving…" : "Mark COD as Collected"}
+              </Button>
+            )}
           </Card>
           {order.notes && (
             <Card title="Customer notes">

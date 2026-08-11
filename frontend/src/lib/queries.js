@@ -37,6 +37,7 @@ export const createOrder = (payload) => api.post("/orders", payload).then(unwrap
 export const verifyPayment = (payload) => api.post("/orders/verify", payload).then(unwrap);
 export const getOrderByNumber = (orderNumber, verify = {}) =>
   api.get(`/orders/${orderNumber}`, { params: verify }).then(unwrap);
+export const listMyOrders = () => api.get("/orders/my").then(unwrap);
 
 // --- Customer accounts (email-OTP registration + Google sign-in, separate from staff auth) ---
 export const sendCustomerOtp = (payload) => api.post("/customers/auth/otp/send", payload).then(unwrap);
@@ -68,6 +69,7 @@ export const deleteAdminUser = (id) => api.delete(`/users/${id}`).then(unwrap);
 export const listAdminOrders = (params = {}) => api.get("/orders/admin/all", { params }).then(unwrapWithMeta);
 export const getAdminOrder = (id) => api.get(`/orders/admin/${id}`).then(unwrap);
 export const updateOrderStatus = (id, payload) => api.patch(`/orders/admin/${id}/status`, payload).then(unwrap);
+export const updateOrderPaymentStatus = (id, paymentStatus) => api.patch(`/orders/admin/${id}/payment-status`, { paymentStatus }).then(unwrap);
 
 // --- Admin: dashboard ---
 export const getDashboardSummary = () => api.get("/dashboard/summary").then(unwrap);

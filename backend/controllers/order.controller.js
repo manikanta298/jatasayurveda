@@ -52,6 +52,7 @@ const createOrder = asyncHandler(async (req, res) => {
     paymentMethod: gateway.key,
     customer: req.customer?._id || null,
     status: "created",
+    paymentStatus: "pending",
     statusHistory: [{ toStatus: "created", note: "Order created, awaiting payment" }],
   });
 
@@ -101,7 +102,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
       order.gatewayPaymentId = verified.gatewayPaymentId;
       order.gatewaySignature = verified.gatewaySignature;
       order.status = verified.finalStatus;
-      if (verified.paid) order.paidAt = new Date();
+      if (verified.paid) { order.paidAt = new Date(); order.paymentStatus = "paid"; }
       order.statusHistory.push({
         fromStatus: "created",
         toStatus: verified.finalStatus,
@@ -169,6 +170,8 @@ const getByOrderNumber = asyncHandler(async (req, res) => {
   const base = {
     orderNumber: order.orderNumber,
     status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
     items: order.items,
     totalPaise: order.totalPaise,
     currency: order.currency,
@@ -189,6 +192,14 @@ const getByOrderNumber = asyncHandler(async (req, res) => {
     subtotalPaise: order.subtotalPaise,
     shippingPaise: order.shippingPaise,
   });
+});
+
+// GET /api/v1/orders/my — authenticated customer's order history
+const listMyOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({ customer: req.customer._id })
+    .sort("-createdAt")
+    .select("orderNumber createdAt status paymentStatus paymentMethod totalPaise currency items.name items.quantity items.image paidAt collectedAt shippingAddress");
+  return sendSuccess(res, 200, orders);
 });
 
 // GET /api/v1/orders/admin/all — admin/order_manager
@@ -239,6 +250,20 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, order);
 });
 
+// PATCH /api/v1/orders/admin/:id/payment-status { paymentStatus: "collected" }
+const updatePaymentStatus = asyncHandler(async (req, res) => {
+  const { paymentStatus } = req.body;
+  if (paymentStatus !== "collected") throw new ApiError(400, "Only COD collection can be manually marked as Collected");
+  const order = await Order.findById(req.params.id);
+  if (!order) throw new ApiError(404, "Order not found");
+  if (order.paymentMethod !== "cod") throw new ApiError(400, "Only Cash on Delivery orders can be marked Collected");
+  order.paymentStatus = "collected";
+  order.collectedAt = new Date();
+  order.collectedBy = req.user._id;
+  await order.save();
+  return sendSuccess(res, 200, order);
+});
+
 module.exports = {
   paymentMethods,
   createOrder,
@@ -247,4 +272,6 @@ module.exports = {
   listOrders,
   getOrderById,
   updateOrderStatus,
+  updatePaymentStatus,
+  listMyOrders,
 };

@@ -23,6 +23,17 @@ function publicCustomer(customer) {
     avatarUrl: customer.avatarUrl || null,
     address: customer.address || {},
     location: customer.location || {},
+    addresses: (customer.addresses?.length ? customer.addresses : (customer.address?.line1 ? [{
+      _id: "legacy-address",
+      label: "Home",
+      ...customer.address.toObject?.() || customer.address,
+      isDefault: true,
+    }] : [])).slice(0, 3).map((a) => ({
+      id: a._id,
+      label: a.label || "Address",
+      line1: a.line1 || "", line2: a.line2 || "", city: a.city || "", state: a.state || "",
+      postalCode: a.postalCode || "", country: a.country || "India", isDefault: Boolean(a.isDefault),
+    })),
     devices: (customer.devices || []).map((d) => ({ label: d.label, lastUsedAt: d.lastUsedAt })),
   };
 }
@@ -248,10 +259,9 @@ const me = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, publicCustomer(req.customer));
 });
 
-// PATCH /api/v1/customers/auth/profile  { name, address, location }
-// Requires protectCustomer — req.customer is the signed-in customer's own record.
+// PATCH /api/v1/customers/auth/profile  { name, address, addresses, location }
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, address, location } = req.body;
+  const { name, address, addresses, location } = req.body;
   const customer = req.customer;
 
   if (name !== undefined) {
@@ -259,7 +269,28 @@ const updateProfile = asyncHandler(async (req, res) => {
     customer.name = String(name).trim();
   }
 
-  if (address && typeof address === "object") {
+  if (Array.isArray(addresses)) {
+    if (addresses.length > 3) throw new ApiError(400, "You can save up to 3 addresses");
+    const normalized = addresses.map((a, index) => {
+      if (!a || typeof a !== "object") throw new ApiError(400, `Invalid address ${index + 1}`);
+      const out = { label: String(a.label || `Address ${index + 1}`).trim() };
+      for (const field of ADDRESS_FIELDS) out[field] = String(a[field] ?? "").trim();
+      if (!out.line1 || !out.city || !out.state || !out.postalCode || !out.country) {
+        throw new ApiError(400, `Address ${index + 1} is incomplete`);
+      }
+      out.isDefault = Boolean(a.isDefault);
+      return out;
+    });
+    if (normalized.length && !normalized.some((a) => a.isDefault)) normalized[0].isDefault = true;
+    let seenDefault = false;
+    normalized.forEach((a) => {
+      if (a.isDefault && seenDefault) a.isDefault = false;
+      if (a.isDefault) seenDefault = true;
+    });
+    customer.addresses = normalized;
+    const d = normalized.find((a) => a.isDefault);
+    if (d) customer.address = { line1:d.line1, line2:d.line2, city:d.city, state:d.state, postalCode:d.postalCode, country:d.country };
+  } else if (address && typeof address === "object") {
     customer.address = customer.address || {};
     for (const field of ADDRESS_FIELDS) {
       if (address[field] !== undefined) customer.address[field] = String(address[field]).trim();
@@ -272,12 +303,17 @@ const updateProfile = asyncHandler(async (req, res) => {
     customer.location = {
       lat: Number.isFinite(lat) ? lat : customer.location?.lat,
       lng: Number.isFinite(lng) ? lng : customer.location?.lng,
-      formattedAddress:
-        location.formattedAddress !== undefined
-          ? String(location.formattedAddress).trim()
-          : customer.location?.formattedAddress || "",
-      placeId: location.placeId !== undefined ? String(location.placeId).trim() : customer.location?.placeId || "",
+      formattedAddress: location.formattedAddress !== undefined
+        ? String(location.formattedAddress).trim()
+        : customer.location?.formattedAddress || "",
+      placeId: location.placeId !== undefined
+        ? String(location.placeId).trim()
+        : customer.location?.placeId || "",
     };
+  }
+
+  if ((!customer.addresses || customer.addresses.length === 0) && customer.address?.line1) {
+    customer.addresses = [{ ...customer.address.toObject?.() || customer.address, label: "Home", isDefault: true }];
   }
 
   await customer.save();

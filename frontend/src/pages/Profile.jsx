@@ -14,7 +14,7 @@ const emptyLocation = { lat: null, lng: null, formattedAddress: "", placeId: "" 
 export default function Profile() {
   const { customer, loading, updateProfile } = useCustomerAuth();
   const [name, setName] = useState("");
-  const [address, setAddress] = useState(emptyAddress);
+  const [addresses, setAddresses] = useState([]);
   const [location, setLocation] = useState(emptyLocation);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -22,12 +22,38 @@ export default function Profile() {
   useEffect(() => {
     if (!customer) return;
     setName(customer.name || "");
-    setAddress({ ...emptyAddress, ...(customer.address || {}) });
+    const saved = Array.isArray(customer.addresses) ? customer.addresses : [];
+    const fallback = customer.address?.line1 ? [{ id: "legacy-address", label: "Home", ...customer.address, isDefault: true }] : [];
+    setAddresses((saved.length ? saved : fallback).slice(0, 3));
+
     setLocation({ ...emptyLocation, ...(customer.location || {}) });
   }, [customer]);
 
-  function setAddressField(field) {
-    return (e) => setAddress((a) => ({ ...a, [field]: e.target.value }));
+  function setAddressField(index, field) {
+    return (e) => setAddresses((list) => list.map((a, i) => i === index ? { ...a, [field]: e.target.value } : a));
+  }
+
+  function addAddress() {
+    if (addresses.length >= 3) {
+      toast.error("You can save up to 3 addresses.");
+      return;
+    }
+    setAddresses((list) => [
+      ...list,
+      { label: `Address ${list.length + 1}`, ...emptyAddress, isDefault: list.length === 0 },
+    ]);
+  }
+
+  function removeAddress(index) {
+    setAddresses((list) => {
+      const next = list.filter((_, i) => i !== index);
+      if (next.length && !next.some((a) => a.isDefault)) next[0] = { ...next[0], isDefault: true };
+      return next;
+    });
+  }
+
+  function makeDefault(index) {
+    setAddresses((list) => list.map((a, i) => ({ ...a, isDefault: i === index })));
   }
 
   // Uses the browser's own geolocation (no Google Maps API key required) to
@@ -70,7 +96,7 @@ export default function Profile() {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateProfile({ name, address, location });
+      await updateProfile({ name, addresses, location });
       toast.success("Profile updated");
     } catch (err) {
       toast.error(err.message || "Could not save profile");
@@ -133,32 +159,57 @@ export default function Profile() {
           </div>
 
           <div>
-            <h2 className="font-display text-xl text-foreground">Delivery address</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="addr-line1">Address line 1</Label>
-                <Input id="addr-line1" value={address.line1} onChange={setAddressField("line1")} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl text-foreground">Saved delivery addresses</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Save up to 3 addresses. Your default address is preselected at checkout.</p>
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="addr-line2">Address line 2</Label>
-                <Input id="addr-line2" value={address.line2} onChange={setAddressField("line2")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-city">City</Label>
-                <Input id="addr-city" value={address.city} onChange={setAddressField("city")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-state">State</Label>
-                <Input id="addr-state" value={address.state} onChange={setAddressField("state")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-postal">Postal code</Label>
-                <Input id="addr-postal" value={address.postalCode} onChange={setAddressField("postalCode")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-country">Country</Label>
-                <Input id="addr-country" value={address.country} onChange={setAddressField("country")} />
-              </div>
+              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={addAddress} disabled={addresses.length >= 3}>
+                Add address ({addresses.length}/3)
+              </Button>
+            </div>
+
+            <div className="mt-4 space-y-5">
+              {addresses.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+                  No saved addresses yet. Add your first delivery address.
+                </div>
+              )}
+              {addresses.map((a, index) => (
+                <div key={a.id || index} className="rounded-2xl border border-border bg-background p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <Input
+                      value={a.label || ""}
+                      onChange={setAddressField(index, "label")}
+                      placeholder="Address label (Home, Work...)"
+                      className="max-w-[220px]"
+                    />
+                    <div className="flex gap-2">
+                      <Button type="button" variant={a.isDefault ? "secondary" : "outline"} size="sm" className="rounded-full" onClick={() => makeDefault(index)}>
+                        {a.isDefault ? "Default" : "Make default"}
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive" onClick={() => removeAddress(index)}>
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Address line 1</Label>
+                      <Input value={a.line1 || ""} onChange={setAddressField(index, "line1")} />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Address line 2</Label>
+                      <Input value={a.line2 || ""} onChange={setAddressField(index, "line2")} />
+                    </div>
+                    <div className="space-y-1.5"><Label>City</Label><Input value={a.city || ""} onChange={setAddressField(index, "city")} /></div>
+                    <div className="space-y-1.5"><Label>State</Label><Input value={a.state || ""} onChange={setAddressField(index, "state")} /></div>
+                    <div className="space-y-1.5"><Label>Postal code</Label><Input value={a.postalCode || ""} onChange={setAddressField(index, "postalCode")} /></div>
+                    <div className="space-y-1.5"><Label>Country</Label><Input value={a.country || "India"} onChange={setAddressField(index, "country")} /></div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

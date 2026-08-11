@@ -66,7 +66,10 @@ const orderSchema = new mongoose.Schema(
     gatewaySignature: { type: String },
     // Optional: set when the buyer was signed in to a customer account at checkout. Guests leave this null.
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
+    paymentStatus: { type: String, enum: ["pending", "paid", "collected"], default: "pending" },
     paidAt: { type: Date },
+    collectedAt: { type: Date },
+    collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     notes: { type: String },
     statusHistory: { type: [statusHistorySchema], default: [] },
   },

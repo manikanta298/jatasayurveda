@@ -27,6 +27,20 @@ const addressSchema = new mongoose.Schema(
 // Coordinates + formatted label captured from the profile page's "use my
 // location" picker, used for delivery accuracy and showing the customer's
 // pin back to them.
+const savedAddressSchema = new mongoose.Schema(
+  {
+    label: { type: String, trim: true, default: "Address" },
+    line1: { type: String, trim: true, default: "" },
+    line2: { type: String, trim: true, default: "" },
+    city: { type: String, trim: true, default: "" },
+    state: { type: String, trim: true, default: "" },
+    postalCode: { type: String, trim: true, default: "" },
+    country: { type: String, trim: true, default: "India" },
+    isDefault: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 const locationSchema = new mongoose.Schema(
   {
     lat: { type: Number },
@@ -64,6 +78,7 @@ const customerSchema = new mongoose.Schema(
     tokenVersion: { type: Number, default: 0 },
     avatarUrl: String,
     address: { type: addressSchema, default: () => ({}) },
+    addresses: { type: [savedAddressSchema], default: [] },
     location: { type: locationSchema, default: () => ({}) },
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },

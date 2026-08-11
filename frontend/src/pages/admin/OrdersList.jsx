@@ -58,11 +58,11 @@ export default function OrdersList() {
       );
       const allRows = [first.data, ...rest.map((r) => r.data)].flat();
 
-      const headers = ["order_number", "created_at", "status", "customer_name", "customer_email", "customer_phone", "city", "state", "total_inr"];
+      const headers = ["order_number", "created_at", "status", "payment_status", "customer_name", "customer_email", "customer_phone", "city", "state", "total_inr"];
       const lines = [headers.join(",")];
       for (const r of allRows) {
         lines.push(
-          [r.orderNumber, r.createdAt, r.status, r.customerName, r.customerEmail, r.customerPhone, r.shippingAddress?.city, r.shippingAddress?.state, (r.totalPaise / 100).toFixed(2)]
+          [r.orderNumber, r.createdAt, r.status, r.paymentStatus, r.customerName, r.customerEmail, r.customerPhone, r.shippingAddress?.city, r.shippingAddress?.state, (r.totalPaise / 100).toFixed(2)]
             .map(csvEscape)
             .join(",")
         );
@@ -128,15 +128,16 @@ export default function OrdersList() {
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Order status</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Placed</th>
               </tr>
             </thead>
             <tbody>
               {query.isLoading ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">Loading…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No orders match.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">No orders match.</td></tr>
               ) : (
                 rows.map((o) => (
                   <tr key={o._id} className="border-t border-border hover:bg-muted/30">
@@ -150,6 +151,7 @@ export default function OrdersList() {
                     <td className="px-4 py-3 text-muted-foreground">{o.shippingAddress?.city}, {o.shippingAddress?.state}</td>
                     <td className="px-4 py-3">{formatINRFromPaise(o.totalPaise)}</td>
                     <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
+                    <td className="px-4 py-3 text-xs font-medium">{o.paymentStatus === "collected" ? "Collected" : o.paymentStatus === "paid" ? "Online Payment - Paid" : "Online Payment - Pending"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{formatDateTime(o.createdAt)}</td>
                   </tr>
                 ))

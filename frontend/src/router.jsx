@@ -23,6 +23,7 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderTracking = lazy(() => import("./pages/OrderTracking"));
 const Login = lazy(() => import("./pages/Login"));
 const Profile = lazy(() => import("./pages/Profile"));
+const Orders = lazy(() => import("./pages/Orders"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -60,6 +61,7 @@ export default function AppRouter() {
         <Route path="order/:orderNumber" element={<OrderTracking />} />
         <Route path="auth" element={<Login />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="privacy-policy" element={<LegalPage slug="privacy-policy" />} />
         <Route path="refund-policy" element={<LegalPage slug="refund-policy" />} />
         <Route path="return-policy" element={<LegalPage slug="return-policy" />} />

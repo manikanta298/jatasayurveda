@@ -2,7 +2,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Lock, ArrowRight } from "lucide-react";
+import { Loader2, Lock, ArrowRight, MapPin, Settings2 } from "lucide-react";
 import { Section, Eyebrow } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,8 @@ export default function Checkout() {
   const [methods, setMethods] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+
 
   // Ask the backend which gateways are actually configured right now, so we
   // never show an option (e.g. ICICI) that would just fail at checkout.
@@ -68,12 +70,42 @@ export default function Checkout() {
   // Signed-in customers don't have to retype their contact details.
   useEffect(() => {
     if (!customer) return;
+    const addresses = customer.addresses || [];
+    const defaultAddress = addresses.find((a) => a.isDefault) || addresses[0];
+    setValues((v) => {
+      const next = {
+        ...v,
+        customer_name: v.customer_name || customer.name || "",
+        customer_email: v.customer_email || customer.email || "",
+        customer_phone: v.customer_phone || customer.phone || "",
+      };
+      if (defaultAddress && !v.shipping_address_line1) {
+        next.shipping_address_line1 = defaultAddress.line1 || "";
+        next.shipping_address_line2 = defaultAddress.line2 || "";
+        next.shipping_city = defaultAddress.city || "";
+        next.shipping_state = defaultAddress.state || "";
+        next.shipping_pincode = defaultAddress.postalCode || "";
+        next.shipping_country = defaultAddress.country || "India";
+        setSelectedAddressId(String(defaultAddress.id || ""));
+      }
+      return next;
+    });
+  }, [customer]);
+
+  function applySavedAddress(address) {
+    if (!address) return;
+    setSelectedAddressId(String(address.id || ""));
     setValues((v) => ({
       ...v,
-      customer_name: v.customer_name || customer.name || "",
-      customer_email: v.customer_email || customer.email || "",
+      shipping_address_line1: address.line1 || "",
+      shipping_address_line2: address.line2 || "",
+      shipping_city: address.city || "",
+      shipping_state: address.state || "",
+      shipping_pincode: address.postalCode || "",
+      shipping_country: address.country || "India",
     }));
-  }, [customer]);
+    setErrors({});
+  }
 
   const set = (k) => (e) => {
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -264,6 +296,32 @@ export default function Checkout() {
           </Card>
 
           <Card title="Shipping address">
+            {(customer.addresses || []).length > 0 && (
+              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Saved addresses</p>
+                    <p className="text-xs text-muted-foreground">Your profile address is selected automatically.</p>
+                  </div>
+                  <Button asChild type="button" variant="outline" size="sm" className="rounded-full">
+                    <Link to="/profile"><Settings2 className="mr-2 h-4 w-4" /> Manage up to 3</Link>
+                  </Button>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {(customer.addresses || []).map((a) => (
+                    <button
+                      key={a.id || a.label}
+                      type="button"
+                      onClick={() => applySavedAddress(a)}
+                      className={`rounded-2xl border p-3 text-left transition ${selectedAddressId === String(a.id || "") ? "border-primary bg-background shadow-sm" : "border-border bg-background hover:border-primary/40"}`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" />{a.label}</div>
+                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.line1}, {a.city}, {a.state} {a.postalCode}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <Field id="shipping_address_line1" label="Address line 1" value={values.shipping_address_line1} onChange={set("shipping_address_line1")} error={errors.shipping_address_line1} autoComplete="address-line1" />
             <Field id="shipping_address_line2" label="Address line 2 (optional)" value={values.shipping_address_line2 || ""} onChange={set("shipping_address_line2")} error={errors.shipping_address_line2} autoComplete="address-line2" />
             <div className="grid gap-4 sm:grid-cols-2">

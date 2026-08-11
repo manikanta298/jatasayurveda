@@ -123,7 +123,18 @@ export default function OrderTracking() {
             <div className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
               <h2 className="font-display text-lg text-foreground">Payment</h2>
               <p className="mt-3 text-sm text-muted-foreground">
-                Status: <span className="font-medium text-foreground capitalize">{order.status.replace(/_/g, " ")}</span>
+                Order status: <span className="font-medium text-foreground capitalize">{order.status.replace(/_/g, " ")}</span>
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Payment: <span className="font-medium text-foreground">
+                  {order.paymentStatus === "collected"
+                    ? "Collected"
+                    : order.paymentMethod === "cod"
+                      ? "Cash on Delivery"
+                      : order.paymentStatus === "paid"
+                        ? "Online Payment - Paid"
+                        : "Online Payment - Pending"}
+                </span>
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {STATUS_MESSAGES[order.status] || "Our team will reach out with any updates."}

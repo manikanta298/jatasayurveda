@@ -23,11 +23,13 @@ const checkoutLimiter = rateLimit({
 router.get("/payment-methods", controller.paymentMethods);
 router.post("/", checkoutLimiter, protectCustomer, controller.createOrder);
 router.post("/verify", checkoutLimiter, controller.verifyPayment);
+router.get("/my", protectCustomer, controller.listMyOrders);
 router.get("/:orderNumber", controller.getByOrderNumber);
 
 // Admin management
 router.get("/admin/all", ...adminGuard, controller.listOrders);
 router.get("/admin/:id", ...adminGuard, controller.getOrderById);
 router.patch("/admin/:id/status", ...adminGuard, controller.updateOrderStatus);
+router.patch("/admin/:id/payment-status", ...adminGuard, controller.updatePaymentStatus);
 
 module.exports = router;

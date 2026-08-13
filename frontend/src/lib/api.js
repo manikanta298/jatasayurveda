@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://jatasayurveda.onrender.com/api/v1",
+  baseURL: import.meta.env.VITE_API_URL || "https://lightcoral-chicken-920604.hostingersite.com/api/v1",
   withCredentials: true, // sends the httpOnly JWT cookie set by /auth/login
 });
 

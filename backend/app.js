@@ -25,7 +25,7 @@ app.set("trust proxy", 1);
 // never includes a trailing slash, so "https://x.com/" would otherwise never match.
 // CLIENT_URL may hold a comma-separated list of allowed origins; this is the
 // single source of truth reused by verifyOrigin.js so the two never disagree.
-const allowedOrigins = (process.env.CLIENT_URL || "https://YOUR-FRONTEND-DOMAIN.example")
+const allowedOrigins = (process.env.CLIENT_URL || "https://yellowgreen-stinkbug-605180.hostingersite.com/")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);

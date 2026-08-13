@@ -88,7 +88,7 @@ export function SiteNav() {
         scrolled ? "glass-nav" : "bg-transparent"
       )}
     >
-      <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4 rounded-[1.7rem] border border-white/18 bg-white/82 px-4 backdrop-blur-2xl sm:h-18 sm:px-5 lg:px-6">
           <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label={brandName}>
             <img src={logoSrc} alt={brandName} className="h-11 w-auto sm:h-12" />

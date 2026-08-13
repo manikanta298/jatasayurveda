@@ -1,8 +1,12 @@
 const ApiError = require("../utils/ApiError");
 
-// Same normalization as app.js: strip any trailing slash so a copy-pasted
-// CLIENT_URL with a trailing "/" doesn't cause every request to be rejected.
-const clientUrl = (process.env.CLIENT_URL || "https://jatasayurveda.vercel.app").replace(/\/+$/, "");
+// Same source and normalization as app.js's allowedOrigins so the two never
+// disagree. CLIENT_URL may hold a comma-separated list; verifyOrigin checks
+// against the primary (first) frontend origin.
+const clientUrl = (process.env.CLIENT_URL || "https://YOUR-FRONTEND-DOMAIN.example")
+  .split(",")[0]
+  .trim()
+  .replace(/\/+$/, "");
 const allowedOrigin = new URL(clientUrl).origin;
 
 /**

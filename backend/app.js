@@ -23,12 +23,21 @@ app.set("trust proxy", 1);
 // Normalized so a trailing slash in the CLIENT_URL env var (a common copy-paste
 // mistake) can't cause a CORS origin mismatch — the browser's Origin header
 // never includes a trailing slash, so "https://x.com/" would otherwise never match.
-const clientUrl = (process.env.CLIENT_URL || "https://yellowgreen-stinkbug-605180.hostingersite.com/").replace(/\/+$/, "");
+// CLIENT_URL may hold a comma-separated list of allowed origins; this is the
+// single source of truth reused by verifyOrigin.js so the two never disagree.
+const allowedOrigins = (process.env.CLIENT_URL || "https://YOUR-FRONTEND-DOMAIN.example")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 
 app.use(helmet());
 app.use(
   cors({
-    origin: clientUrl,
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );

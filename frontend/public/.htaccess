@@ -1,0 +1,22 @@
+# Serve index.html for all routes so React Router can handle client-side
+# routing (e.g. /admin, /contact). Without this, Apache 404s on any path
+# that isn't a real file/folder, since those routes only exist in the SPA.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Don't rewrite requests for real files or directories (assets, images, etc.)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Send everything else to index.html
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Optional: prevent caching issues with the SPA shell after deploys
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

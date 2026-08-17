@@ -11,6 +11,7 @@ import App from "./App";
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
+const Consultation = lazy(() => import("./pages/Consultation"));
 const ProductsList = lazy(() => import("./pages/ProductsList"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const ServicesList = lazy(() => import("./pages/ServicesList"));
@@ -49,6 +50,7 @@ export default function AppRouter() {
         <Route index element={<Home />} />
         <Route path="about" element={<About />} />
         <Route path="contact" element={<Contact />} />
+        <Route path="consultation" element={<Consultation />} />
         <Route path="products" element={<ProductsList />} />
         <Route path="products/:slug" element={<ProductDetail />} />
         <Route path="services" element={<ServicesList />} />

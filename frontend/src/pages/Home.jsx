@@ -319,7 +319,7 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
             <Button asChild size="lg" className="rounded-full bg-primary px-7 py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">
-              <Link to="/contact">Book Consultation</Link>
+              <Link to="/consultation">Book Consultation</Link>
             </Button>
           </div>
         </div>

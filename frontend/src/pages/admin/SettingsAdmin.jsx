@@ -108,7 +108,7 @@ export default function SettingsAdmin() {
           <Input {...bind("home_hero", "primary_cta_label")} />
         </Field>
         <Field label="Primary button link">
-          <Input {...bind("home_hero", "primary_cta_href")} placeholder="/contact" />
+          <Input {...bind("home_hero", "primary_cta_href")} placeholder="/consultation" />
         </Field>
         <Field label="Secondary button label">
           <Input {...bind("home_hero", "secondary_cta_label")} />

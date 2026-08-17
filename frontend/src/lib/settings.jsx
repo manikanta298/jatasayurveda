@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS = {
     description:
       "Scientific Research Meets Natural Wellness at JATA Ayurveda. Discover Trustworthy Solutions for Holistic Well-being.",
     primary_cta_label: "Book Consultation",
-    primary_cta_href: "/contact",
+    primary_cta_href: "/consultation",
     secondary_cta_label: "Shop Ayurvedic Products",
     secondary_cta_href: "/products",
     // Unlimited hero slider media (images/video), managed exclusively from

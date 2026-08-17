@@ -3,77 +3,12 @@ const ApiError = require("../utils/ApiError");
 const { sendSuccess } = require("../utils/ApiResponse");
 const ContactMessage = require("../models/ContactMessage");
 const Notification = require("../models/Notification");
-const SiteSetting = require("../models/SiteSetting");
 const { sendMail } = require("../services/email");
 
-function clean(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function escapeHtml(value) {
-  return clean(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function consultationEmail({
-  name,
-  email,
-  phone,
-  age,
-  gender,
-  symptoms,
-  symptomsDuration,
-  medicalHistory,
-  currentMedications,
-  allergies,
-  additionalDetails,
-}) {
-  const rows = [
-    ["Name", name],
-    ["Age", age ? String(age) : ""],
-    ["Gender", gender],
-    ["Email", email],
-    ["Phone", phone],
-    ["Symptoms / main concern", symptoms],
-    ["Symptoms duration", symptomsDuration],
-    ["Medical history / previous diagnosis", medicalHistory],
-    ["Current medicines / supplements", currentMedications],
-    ["Known allergies", allergies],
-    ["Additional details", additionalDetails],
-  ];
-
-  const text = [
-    "New JATA Ayurveda consultation request",
-    "",
-    ...rows.map(([label, value]) => `${label}: ${value || "Not provided"}`),
-  ].join("\n");
-
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1d2a20">
-      <h2 style="margin-bottom:8px">New consultation request</h2>
-      <p style="margin-top:0;color:#5f6b62">A new patient consultation form was submitted on the JATA Ayurveda website.</p>
-      <table style="border-collapse:collapse;width:100%;max-width:720px">
-        ${rows.map(([label, value]) => `
-          <tr>
-            <td style="padding:10px 12px;border:1px solid #dce5df;font-weight:600;width:34%;vertical-align:top">${escapeHtml(label)}</td>
-            <td style="padding:10px 12px;border:1px solid #dce5df;white-space:pre-wrap;vertical-align:top">${escapeHtml(value || "Not provided")}</td>
-          </tr>
-        `).join("")}
-      </table>
-    </div>
-  `;
-
-  return {
-    subject: `New consultation request — ${name}`,
-    text,
-    html,
-  };
-}
-
+// Best-effort: the message is already saved to MongoDB and the admin is
+// already notified before this runs, so a Google Sheets/Apps Script hiccup
+// (rate limit, script redeployed, network blip) should never turn into a
+// "submission failed" error for the customer — it just logs and moves on.
 async function forwardContactToGoogleSheet(payload) {
   if (!process.env.GOOGLE_SCRIPT_URL) return;
   try {
@@ -96,81 +31,99 @@ const submit = asyncHandler(async (req, res) => {
     name,
     email,
     phone,
-    subject,
-    message,
     age,
     gender,
     symptoms,
-    symptomsDuration,
+    symptomDuration,
     medicalHistory,
-    currentMedications,
+    currentMedicines,
     allergies,
-    additionalDetails,
+    otherDetails,
+    subject,
+    message,
   } = req.body;
 
-  const normalizedName = clean(name);
-  const normalizedEmail = clean(email).toLowerCase();
-  const normalizedSymptoms = clean(symptoms) || clean(message);
-
-  if (!normalizedName || !normalizedEmail || !normalizedSymptoms) {
-    throw new ApiError(400, "Name, email and symptoms are required");
+  if (!name || !email || !message) {
+    throw new ApiError(400, "name, email and message are required");
   }
 
-  const numericAge = age === "" || age === null || age === undefined ? null : Number(age);
-  if (numericAge !== null && (!Number.isInteger(numericAge) || numericAge < 1 || numericAge > 120)) {
-    throw new ApiError(400, "Age must be a whole number between 1 and 120");
-  }
-
-  const payload = {
-    name: normalizedName,
-    email: normalizedEmail,
-    phone: clean(phone),
-    subject: clean(subject) || "New consultation request",
-    message: normalizedSymptoms,
-    age: numericAge,
-    gender: clean(gender),
-    symptoms: normalizedSymptoms,
-    symptomsDuration: clean(symptomsDuration),
-    medicalHistory: clean(medicalHistory),
-    currentMedications: clean(currentMedications),
-    allergies: clean(allergies),
-    additionalDetails: clean(additionalDetails),
-  };
-
-  const contact = await ContactMessage.create(payload);
+  const contact = await ContactMessage.create({
+    name,
+    email,
+    phone,
+    age: age === "" || age == null ? null : Number(age),
+    gender,
+    symptoms,
+    symptomDuration,
+    medicalHistory,
+    currentMedicines,
+    allergies,
+    otherDetails,
+    subject,
+    message,
+  });
 
   await Notification.create({
     type: "new_contact_message",
-    title: "New consultation request",
-    message: `${normalizedName} submitted a consultation request${payload.subject ? `: ${payload.subject}` : ""}`,
+    title: "New contact message",
+    message: `${name} sent a message${subject ? `: ${subject}` : ""}`,
     link: `/admin/contact/${contact._id}`,
     recipientRoles: ["admin", "order_manager"],
   });
 
-  const settings = await SiteSetting.findOne({ key: "contact" }).lean();
-  const recipient = clean(process.env.CONSULTATION_RECIPIENT_EMAIL) || clean(settings?.value?.email) || clean(process.env.SMTP_USER);
+  const recipient =
+    process.env.CONSULTATION_RECIPIENT_EMAIL ||
+    process.env.CONTACT_RECIPIENT_EMAIL ||
+    process.env.SMTP_USER;
 
-  // The request is already persisted before the email is sent. If email is not
-  // configured or a provider is temporarily unavailable, log the failure but
-  // still return a successful form submission so the patient isn't asked to
-  // resubmit a request that was already saved.
   if (recipient) {
     try {
-      const emailContent = consultationEmail(payload);
+      const escapeHtml = (value) =>
+        String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+
+      const rows = [
+        ["Name", name],
+        ["Age", age],
+        ["Gender", gender],
+        ["Phone", phone],
+        ["Email", email],
+        ["Symptoms", symptoms],
+        ["Symptom duration", symptomDuration],
+        ["Medical history", medicalHistory],
+        ["Current medicines / supplements", currentMedicines],
+        ["Allergies", allergies],
+        ["Other details", otherDetails],
+      ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
+
+      const htmlRows = rows
+        .map(([label, value]) =>
+          `<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">${escapeHtml(label)}</td><td style="padding:8px 12px;border:1px solid #e5e7eb;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
+        )
+        .join("");
+
+      const text = rows.map(([label, value]) => `${label}: ${value}`).join("\n\n");
+
       await sendMail({
         to: recipient,
-        subject: emailContent.subject,
-        text: emailContent.text,
-        html: emailContent.html,
+        subject: `New Book Consultation Request — ${name}`,
+        text,
+        html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">New Book Consultation Request</h2><p>A new consultation form was submitted on the JATA Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
       });
-    } catch (err) {
-      console.error(`[contact] Consultation email failed: ${err.message}`);
+    } catch (mailError) {
+      console.error("[contact] consultation email failed:", mailError.message);
+      throw new ApiError(502, "Your request was saved, but the consultation email could not be sent. Please try again.");
     }
   } else {
-    console.warn("[contact] No consultation email recipient configured. Set CONSULTATION_RECIPIENT_EMAIL or contact.email in site settings.");
+    console.warn("[contact] No consultation recipient configured; submission was saved without email delivery.");
   }
 
-  forwardContactToGoogleSheet(payload);
+  // Fire-and-forget: don't let a Sheets outage delay or fail the customer's response.
+  forwardContactToGoogleSheet({ name, email, phone, subject, message });
 
   return sendSuccess(res, 201, { received: true, id: contact._id });
 });

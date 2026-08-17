@@ -57,7 +57,7 @@ export default function ServiceDetail() {
             <p className="mt-5 text-lg leading-relaxed text-foreground/80">{service.shortDescription}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="rounded-full bg-primary px-7 py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">
-                <Link to="/contact">Book Consultation <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to="/consultation">Book Consultation <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="rounded-full border-primary/30 bg-background/60 px-7 py-6 text-base text-primary backdrop-blur">
                 <Link to="/services">All Medicinal Plants</Link>
@@ -215,7 +215,7 @@ export default function ServiceDetail() {
           </h3>
           <p className="mt-3 text-muted-foreground">Free 15-minute discovery call to see if this programme is right for you.</p>
           <Button asChild size="lg" className="mt-8 rounded-full bg-primary px-7 py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">
-            <Link to="/contact">Book Consultation</Link>
+            <Link to="/consultation">Book Consultation</Link>
           </Button>
         </div>
       </Section>

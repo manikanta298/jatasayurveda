@@ -321,9 +321,6 @@ export default function Home() {
             <Button asChild size="lg" className="rounded-full bg-primary px-7 py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">
               <Link to="/contact">Book Consultation</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-full border-primary/30 px-7 py-6 text-base text-primary hover:bg-primary/5">
-              <Link to="/services">Explore treatments</Link>
-            </Button>
           </div>
         </div>
       </Section>

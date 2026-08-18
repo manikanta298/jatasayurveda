@@ -110,9 +110,9 @@ const submit = asyncHandler(async (req, res) => {
 
       await sendMail({
         to: recipient,
-        subject: `New Book Consultation Request — ${name}`,
+        subject: `Customer Details — ${name}`,
         text,
-        html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">New Book Consultation Request</h2><p>A new consultation form was submitted on the JATA Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">Customer Details</h2><p>A new consultation form was submitted on the JATAS Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
       });
     } catch (mailError) {
       console.error("[contact] consultation email failed:", mailError.message);

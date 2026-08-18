@@ -7,12 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Section, SectionHeading, Eyebrow } from "@/components/site/Section";
 import { HeroSection } from "@/components/site/HeroSection";
 import { CardCarousel } from "@/components/site/CardCarousel";
-import { listServices, listProducts, listDoctors, listTestimonials, listBlogPosts, listCertifications } from "@/lib/queries";
+import { listProducts, listDoctors, listTestimonials, listBlogPosts, listCertifications } from "@/lib/queries";
 import { useCart } from "@/lib/cart";
 import { formatINRFromPaise, formatDate } from "@/lib/format";
 import researchLabImage from "@/assets/images/research-lab.jpg";
 import {
-  FALLBACK_SERVICES,
   FALLBACK_PRODUCTS,
   FALLBACK_TESTIMONIALS,
   FALLBACK_BLOG_POSTS,
@@ -27,14 +26,12 @@ export default function Home() {
   // edited in the admin panel, not a manually curated sortOrder. Fetching
   // exactly 3 directly from the backend (rather than fetching everything and
   // slicing client-side) keeps this correct even as the catalog grows.
-  const { data: services = [] } = useQuery({ queryKey: ["services", "recent"], queryFn: () => listServices({ sort: "-updatedAt", limit: 3 }) });
   const { data: products = [] } = useQuery({ queryKey: ["products", "recent"], queryFn: () => listProducts({ sort: "-updatedAt", limit: 3 }) });
   const { data: doctors = [] } = useQuery({ queryKey: ["doctors"], queryFn: () => listDoctors() });
   const { data: testimonials = [] } = useQuery({ queryKey: ["testimonials"], queryFn: () => listTestimonials() });
   const { data: articles = [] } = useQuery({ queryKey: ["blog", "recent"], queryFn: () => listBlogPosts({ sort: "-updatedAt", limit: 3 }) });
   const { data: certifications = [] } = useQuery({ queryKey: ["certifications"], queryFn: () => listCertifications() });
 
-  const featuredServices = (services.length > 0 ? services : FALLBACK_SERVICES).slice(0, 3);
   const featuredProducts = (products.length > 0 ? products : FALLBACK_PRODUCTS).slice(0, 3);
   const featuredArticles = (articles.length > 0 ? articles : FALLBACK_BLOG_POSTS).slice(0, 3);
   const featuredTestimonials = testimonials.length > 0 ? testimonials : FALLBACK_TESTIMONIALS;
@@ -76,44 +73,6 @@ export default function Home() {
           ))}
         </div>
       </Section>
-
-      {/* FEATURED SERVICES */}
-      {featuredServices.length > 0 && (
-        <Section className="pt-4">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <SectionHeading
-              eyebrow="Featured Treatments"
-              title={<>Treatments crafted around <span className="italic text-primary">you</span>.</>}
-              description="From flagship Panchakarma to specialised women's care — every programme is designed by a senior physician for your unique constitution."
-            />
-            <Button asChild variant="ghost" className="rounded-full text-primary hover:bg-primary/5">
-              <Link to="/services"> All Medicinal Plants <ArrowRight className="ml-2 h-4 w-4" /></Link>
-            </Button>
-          </div>
-
-          <CardCarousel
-            items={featuredServices}
-            keyFn={(s) => s.slug}
-            renderItem={(s) => (
-              <Link
-                to={`/services/${s.slug}`}
-                className="group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-soft)] transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-elegant)]"
-              >
-                <div className="aspect-[4/5] overflow-hidden">
-                  <img src={s.bannerImageUrl} alt={s.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                </div>
-                <div className="p-6">
-                  <h3 className="font-display text-xl text-foreground">{s.name}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.shortDescription}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                    Learn more <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </Link>
-            )}
-          />
-        </Section>
-      )}
 
       {/* FEATURED PRODUCTS */}
       {featuredProducts.length > 0 && (

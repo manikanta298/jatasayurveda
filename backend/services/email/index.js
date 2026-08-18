@@ -20,7 +20,7 @@ async function sendMail({ to, subject, html, text }) {
 
   try {
     await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME || "JATA Ayurveda"}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      from: `"${process.env.SMTP_FROM_NAME || "JATAS Ayurveda"}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
       to,
       subject,
       html,

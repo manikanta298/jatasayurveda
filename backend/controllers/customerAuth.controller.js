@@ -44,7 +44,7 @@ function clientIp(req) {
 
 function otpEmail(code) {
   return {
-    subject: "Your JATA Ayurveda verification code",
+    subject: "Your JATAS Ayurveda verification code",
     text: `Your verification code is ${code}. It expires in ${Number(process.env.OTP_TTL_MINUTES) || 10} minutes.`,
     html: `<p>Your verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p><p>It expires in ${Number(process.env.OTP_TTL_MINUTES) || 10} minutes. If you didn't request this, you can ignore this email.</p>`,
   };

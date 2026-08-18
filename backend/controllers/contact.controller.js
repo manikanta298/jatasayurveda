@@ -108,11 +108,15 @@ const submit = asyncHandler(async (req, res) => {
 
       const text = rows.map(([label, value]) => `${label}: ${value}`).join("\n\n");
 
+      const isConsultation = subject === "New Book Consultation request";
+      const emailSubject = isConsultation ? `Book Consultation — ${name}` : `Customer Details — ${name}`;
+      const emailHeading = isConsultation ? "Book Consultation" : "Customer Details";
+
       await sendMail({
         to: recipient,
-        subject: `Customer Details — ${name}`,
+        subject: emailSubject,
         text,
-        html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">Customer Details</h2><p>A new consultation form was submitted on the JATAS Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">${emailHeading}</h2><p>A new consultation form was submitted on the JATAS Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
       });
     } catch (mailError) {
       console.error("[contact] consultation email failed:", mailError.message);

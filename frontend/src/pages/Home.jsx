@@ -45,7 +45,7 @@ export default function Home() {
       {/* WHY CHOOSE */}
       <Section>
         <SectionHeading
-          eyebrow="Why JATA Ayurveda"
+          eyebrow="Why JATAS Ayurveda"
           title={<>Ancient wisdom, <span className="text-primary italic">honestly delivered.</span></>}
           description="We don't sell shortcuts. We build long-term wellness with senior physicians, transparent formulations and protocols that respect both classical shastra and modern evidence."
         />

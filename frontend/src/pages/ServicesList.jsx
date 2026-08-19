@@ -18,7 +18,7 @@ export default function ServicesList() {
             Treatment programmes <span className="italic text-primary">designed around you</span>.
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-            Every JATA programme begins with a senior physician, a detailed
+            Every JATAS programme begins with a senior physician, a detailed
             assessment, and a plan that respects your constitution, your
             calendar and your goals.
           </p>

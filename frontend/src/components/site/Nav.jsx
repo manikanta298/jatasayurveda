@@ -35,7 +35,7 @@ export function SiteNav() {
   const { brand } = useSettings();
   const { customer, logout } = useCustomerAuth();
   const logoSrc = brand.logo_url || logo;
-  const brandName = brand.name || "JATA Ayurveda";
+  const brandName = brand.name || "JATAS Ayurveda";
 
   function openAuth(tab) {
     setOpen(false);
@@ -60,10 +60,10 @@ export function SiteNav() {
   // Dialog component), so closing it is always one click away.
   useEffect(() => {
     if (customer) return undefined;
-    if (sessionStorage.getItem("jata_auth_popup_shown")) return undefined;
+    if (sessionStorage.getItem("jatas_auth_popup_shown")) return undefined;
 
     const timer = setTimeout(() => {
-      sessionStorage.setItem("jata_auth_popup_shown", "1");
+      sessionStorage.setItem("jatas_auth_popup_shown", "1");
       setAuthModal({ open: true, tab: "login" });
     }, 10000);
 
@@ -157,7 +157,7 @@ export function SiteNav() {
           )}
         >
           <div className="mb-4 rounded-2xl bg-primary/8 p-3">
-            <p className="text-sm font-semibold text-foreground">Explore JATA Ayurveda</p>
+            <p className="text-sm font-semibold text-foreground">Explore JATAS Ayurveda</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Wellness products, research-backed care, and the latest updates from our clinic.
             </p>

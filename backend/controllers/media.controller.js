@@ -4,6 +4,8 @@ const ApiError = require("../utils/ApiError");
 const { sendSuccess } = require("../utils/ApiResponse");
 const MediaAsset = require("../models/MediaAsset");
 
+const ALLOWED_FOLDERS = ["uploads", "products", "services", "blog", "media"];
+
 function streamUpload(buffer, folder) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -18,7 +20,7 @@ function streamUpload(buffer, folder) {
 const uploadMedia = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, "No file uploaded (expected field name 'file')");
 
-  const folder = req.body.folder || "uploads";
+  const folder = ALLOWED_FOLDERS.includes(req.body.folder) ? req.body.folder : "uploads";
   const result = await streamUpload(req.file.buffer, folder);
 
   const asset = await MediaAsset.create({

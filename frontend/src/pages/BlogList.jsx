@@ -12,7 +12,7 @@ export default function BlogList() {
 
   return (
     <>
-      <Section className="pt-16 pb-8">
+      <Section className="pt-16 pb-4">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-3xl">
             <Eyebrow>Health Journal</Eyebrow>

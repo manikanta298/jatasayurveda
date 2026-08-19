@@ -37,7 +37,7 @@ export default function ProductsList() {
 
   return (
     <>
-      <Section className="pt-16 pb-8">
+      <Section className="pt-16 pb-4">
         <div className="max-w-3xl">
           <Eyebrow>Shop</Eyebrow>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.05] tracking-tight text-foreground text-balance sm:text-5xl md:text-6xl">

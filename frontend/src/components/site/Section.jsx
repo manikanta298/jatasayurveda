@@ -1,10 +1,18 @@
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export function Section({ children, className, id }) {
   return (
-    <section id={id} className={cn("mx-auto w-full max-w-7xl px-4 pt-10 pb-4 sm:px-6 lg:px-8", className)}>
+    <motion.section
+      id={id}
+      className={cn("mx-auto w-full max-w-7xl px-4 pt-10 pb-4 sm:px-6 lg:px-8", className)}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+    >
       {children}
-    </section>
+    </motion.section>
   );
 }
 

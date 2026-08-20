@@ -14,6 +14,35 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
 };
 
+function AnimatedLetters({ text, className = "", startDelay = 0 }) {
+  const words = String(text || "").split(" ").filter(Boolean);
+  let letterIndex = 0;
+
+  return (
+    <span className={className}>
+      {words.map((word, wordIdx) => (
+        <span key={wordIdx} className="inline-block whitespace-nowrap">
+          {word.split("").map((char, charIdx) => {
+            const idx = letterIndex++;
+            return (
+              <motion.span
+                key={charIdx}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: startDelay + idx * 0.022 }}
+                className="inline-block will-change-transform"
+              >
+                {char}
+              </motion.span>
+            );
+          })}
+          {wordIdx < words.length - 1 ? "\u00A0" : ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function normalizeSlide(slide) {
   if (!slide) return null;
   if (typeof slide === "string") {
@@ -180,11 +209,18 @@ export function HeroSection() {
             </div>
 
             <h1 className="max-w-2xl text-balance font-display text-5xl font-semibold leading-[0.94] tracking-tight text-white sm:text-6xl lg:text-[5.1rem]">
-              <span className="block">{lineOne}</span>
+              <span className="block"><AnimatedLetters text={lineOne} /></span>
               {lineTwo ? (
                 <span className="mt-2 block">
-                  {leadingWords ? <span>{leadingWords} </span> : null}
-                  <span className="italic text-lime-300">{lastWord}</span>
+                  {leadingWords ? (
+                    <AnimatedLetters text={`${leadingWords} `} startDelay={lineOne.length * 0.022} />
+                  ) : null}
+                  <span className="italic text-lime-300">
+                    <AnimatedLetters
+                      text={lastWord}
+                      startDelay={(lineOne.length + leadingWords.length) * 0.022}
+                    />
+                  </span>
                 </span>
               ) : null}
             </h1>

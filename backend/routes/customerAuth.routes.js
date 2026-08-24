@@ -1,6 +1,8 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protectCustomer } = require("../middleware/customerAuth");
+const validate = require("../middleware/validate");
+const { requestOtp, customerRegister, customerLogin, customerResetPassword } = require("../validators/schemas");
 const controller = require("../controllers/customerAuth.controller");
 
 const router = express.Router();
@@ -24,10 +26,10 @@ const otpLimiter = rateLimit({
   message: { success: false, message: "Too many codes requested. Please wait a few minutes and try again." },
 });
 
-router.post("/otp/send", otpLimiter, controller.sendOtp);
-router.post("/register", authLimiter, controller.register);
-router.post("/login", authLimiter, controller.login);
-router.post("/reset-password", authLimiter, controller.resetPassword);
+router.post("/otp/send", otpLimiter, validate(requestOtp), controller.sendOtp);
+router.post("/register", authLimiter, validate(customerRegister), controller.register);
+router.post("/login", authLimiter, validate(customerLogin), controller.login);
+router.post("/reset-password", authLimiter, validate(customerResetPassword), controller.resetPassword);
 router.post("/google", authLimiter, controller.googleLogin);
 router.post("/logout", controller.logout);
 router.get("/me", protectCustomer, controller.me);

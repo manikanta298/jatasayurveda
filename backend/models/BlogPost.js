@@ -34,5 +34,6 @@ const blogPostSchema = new mongoose.Schema(
 );
 
 blogPostSchema.index({ publishedAt: -1 });
+blogPostSchema.index({ status: 1, publishedAt: -1 }); // powers public blog listing queries
 
 module.exports = mongoose.model("BlogPost", blogPostSchema);

@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
+const mongoSanitize = require("express-mongo-sanitize");
 
 const routes = require("./routes");
 const verifyOrigin = require("./middleware/verifyOrigin");
@@ -44,6 +45,11 @@ app.use(
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+// Strips any request keys starting with "$" or containing "." from body,
+// query, and params — the two characters MongoDB uses for operators — so a
+// crafted payload like { "email": { "$ne": null } } can never be used to
+// bypass a findOne() filter (NoSQL injection).
+app.use(mongoSanitize());
 
 // API responses are always dynamic — never let a browser, proxy, or CDN
 // cache them. Without this, "I saved a change but the list still shows the

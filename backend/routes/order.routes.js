@@ -2,6 +2,8 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protect, requireRole } = require("../middleware/auth");
 const { protectCustomer } = require("../middleware/customerAuth");
+const validate = require("../middleware/validate");
+const { createOrder, verifyPayment } = require("../validators/schemas");
 const controller = require("../controllers/order.controller");
 
 const router = express.Router();
@@ -21,8 +23,8 @@ const checkoutLimiter = rateLimit({
 // checkout was intentionally removed. The order is always linked to
 // req.customer.
 router.get("/payment-methods", controller.paymentMethods);
-router.post("/", checkoutLimiter, protectCustomer, controller.createOrder);
-router.post("/verify", checkoutLimiter, controller.verifyPayment);
+router.post("/", checkoutLimiter, protectCustomer, validate(createOrder), controller.createOrder);
+router.post("/verify", checkoutLimiter, validate(verifyPayment), controller.verifyPayment);
 router.get("/my", protectCustomer, controller.listMyOrders);
 router.get("/:orderNumber", controller.getByOrderNumber);
 

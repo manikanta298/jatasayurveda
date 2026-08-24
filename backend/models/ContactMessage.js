@@ -20,4 +20,6 @@ const contactMessageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+contactMessageSchema.index({ status: 1, createdAt: -1 }); // powers admin inbox filtering
+
 module.exports = mongoose.model("ContactMessage", contactMessageSchema);

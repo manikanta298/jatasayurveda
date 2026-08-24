@@ -47,5 +47,6 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ name: "text", shortDescription: "text", tags: "text" });
+productSchema.index({ status: 1, isEnabled: 1, category: 1 }); // powers public product-listing queries
 
 module.exports = mongoose.model("Product", productSchema);

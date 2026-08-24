@@ -3,6 +3,8 @@ require("dotenv").config();
 const app = require("./app");
 const connectDB = require("./config/db");
 const ensureDefaultAdmin = require("./utils/ensureAdmin");
+const { startAgenda } = require("./jobs/agenda");
+require("./jobs/emailJobs"); // registers job definitions
 
 const PORT = process.env.PORT || 5000;
 
@@ -22,6 +24,7 @@ async function start() {
   try {
     await connectDB();
     await ensureDefaultAdmin();
+    await startAgenda();
     app.listen(PORT, () => {
       console.log(`[server] JATA Ayurveda API listening on port ${PORT} (${process.env.NODE_ENV || "development"})`);
     });

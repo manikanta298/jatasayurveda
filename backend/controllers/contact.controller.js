@@ -3,7 +3,7 @@ const ApiError = require("../utils/ApiError");
 const { sendSuccess } = require("../utils/ApiResponse");
 const ContactMessage = require("../models/ContactMessage");
 const Notification = require("../models/Notification");
-const { sendMail } = require("../services/email");
+const { agenda } = require("../jobs/agenda");
 
 // Best-effort: the message is already saved to MongoDB and the admin is
 // already notified before this runs, so a Google Sheets/Apps Script hiccup
@@ -77,50 +77,57 @@ const submit = asyncHandler(async (req, res) => {
     process.env.SMTP_USER;
 
   if (recipient) {
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const rows = [
+      ["Name", name],
+      ["Age", age],
+      ["Gender", gender],
+      ["Phone", phone],
+      ["Email", email],
+      ["Symptoms", symptoms],
+      ["Symptom duration", symptomDuration],
+      ["Medical history", medicalHistory],
+      ["Current medicines / supplements", currentMedicines],
+      ["Allergies", allergies],
+      ["Other details", otherDetails],
+    ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
+
+    const htmlRows = rows
+      .map(([label, value]) =>
+        `<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">${escapeHtml(label)}</td><td style="padding:8px 12px;border:1px solid #e5e7eb;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
+      )
+      .join("");
+
+    const text = rows.map(([label, value]) => `${label}: ${value}`).join("\n\n");
+
+    const isConsultation = subject === "New Book Consultation request";
+    const emailSubject = isConsultation ? `Book Consultation — ${name}` : `Customer Details — ${name}`;
+    const emailHeading = isConsultation ? "Book Consultation" : "Customer Details";
+
+    // Offloaded to the background job queue (Agenda) instead of awaited
+    // inline: the ContactMessage is already saved and the in-app
+    // Notification already created above, so the customer's response
+    // doesn't need to wait on an SMTP round-trip. A failed send is logged
+    // by agenda's "fail" handler; the admin still sees the message in the
+    // dashboard either way.
     try {
-      const escapeHtml = (value) =>
-        String(value ?? "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-
-      const rows = [
-        ["Name", name],
-        ["Age", age],
-        ["Gender", gender],
-        ["Phone", phone],
-        ["Email", email],
-        ["Symptoms", symptoms],
-        ["Symptom duration", symptomDuration],
-        ["Medical history", medicalHistory],
-        ["Current medicines / supplements", currentMedicines],
-        ["Allergies", allergies],
-        ["Other details", otherDetails],
-      ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
-
-      const htmlRows = rows
-        .map(([label, value]) =>
-          `<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">${escapeHtml(label)}</td><td style="padding:8px 12px;border:1px solid #e5e7eb;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
-        )
-        .join("");
-
-      const text = rows.map(([label, value]) => `${label}: ${value}`).join("\n\n");
-
-      const isConsultation = subject === "New Book Consultation request";
-      const emailSubject = isConsultation ? `Book Consultation — ${name}` : `Customer Details — ${name}`;
-      const emailHeading = isConsultation ? "Book Consultation" : "Customer Details";
-
-      await sendMail({
+      await agenda.now("send-contact-notification-email", {
         to: recipient,
         subject: emailSubject,
         text,
         html: `<div style="font-family:Arial,sans-serif;max-width:760px;margin:auto;color:#1f2937"><h2 style="color:#1f5c43;">${emailHeading}</h2><p>A new consultation form was submitted on the JATAS Ayurveda website.</p><table style="width:100%;border-collapse:collapse;">${htmlRows}</table></div>`,
       });
-    } catch (mailError) {
-      console.error("[contact] consultation email failed:", mailError.message);
-      throw new ApiError(502, "Your request was saved, but the consultation email could not be sent. Please try again.");
+    } catch (queueError) {
+      // Only scheduling the job failed (e.g. Mongo hiccup) — the message is
+      // still saved, so this is logged, not surfaced as a customer error.
+      console.error("[contact] failed to queue notification email:", queueError.message);
     }
   } else {
     console.warn("[contact] No consultation recipient configured; submission was saved without email delivery.");

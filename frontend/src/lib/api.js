@@ -1,7 +1,22 @@
 import axios from "axios";
 
+const configuredApiUrl = import.meta.env.VITE_API_URL || "https://lightcoral-chicken-920604.hostingersite.com/api/v1";
+
+// Keep production deployments resilient to a Hostinger/Vite environment
+// variable that contains only the backend host. The backend routes are mounted
+// under /api/v1, so normalize the base URL before Axios creates requests.
+function normalizeApiUrl(value) {
+  const url = value.trim().replace(/\/+$/, "");
+
+  if (/\/api\/v1$/i.test(url)) {
+    return url;
+  }
+
+  return `${url}/api/v1`;
+}
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://lightcoral-chicken-920604.hostingersite.com/api/v1",
+  baseURL: normalizeApiUrl(configuredApiUrl),
   withCredentials: true, // sends the httpOnly JWT cookie set by /auth/login
 });
 

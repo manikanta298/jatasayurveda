@@ -21,12 +21,9 @@ const app = express();
 // single-proxy deployments.
 app.set("trust proxy", 1);
 
-// Normalized so a trailing slash in the CLIENT_URL env var (a common copy-paste
-// mistake) can't cause a CORS origin mismatch — the browser's Origin header
-// never includes a trailing slash, so "https://x.com/" would otherwise never match.
-// CLIENT_URL may hold a comma-separated list of allowed origins; this is the
-// single source of truth reused by verifyOrigin.js so the two never disagree.
-const allowedOrigins = (process.env.CLIENT_URL || "http://jatasayurveda.com/")
+// Normalize configured frontend origins. CLIENT_URL may be a comma-separated
+// list, and browser Origin headers never contain a trailing slash.
+const allowedOrigins = (process.env.CLIENT_URL || "https://jatasayurveda.com,https://www.jatasayurveda.com")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);

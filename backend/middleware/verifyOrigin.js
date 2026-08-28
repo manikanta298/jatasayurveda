@@ -1,13 +1,12 @@
 const ApiError = require("../utils/ApiError");
 
-// Same source and normalization as app.js's allowedOrigins so the two never
-// disagree. CLIENT_URL may hold a comma-separated list; verifyOrigin checks
-// against the primary (first) frontend origin.
-const clientUrl = (process.env.CLIENT_URL || "https://YOUR-FRONTEND-DOMAIN.example")
-  .split(",")[0]
-  .trim()
-  .replace(/\/+$/, "");
-const allowedOrigin = new URL(clientUrl).origin;
+// Keep CSRF origin validation aligned with the CORS configuration in app.js.
+// CLIENT_URL may hold a comma-separated list of trusted frontend origins.
+const allowedOrigins = (process.env.CLIENT_URL || "https://jatasayurveda.com,https://www.jatasayurveda.com")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean)
+  .map((origin) => new URL(origin).origin);
 
 /**
  * Because auth is accepted via cookie, CORS alone doesn't stop CSRF — a
@@ -25,7 +24,7 @@ module.exports = function verifyOrigin(req, res, next) {
   }
 
   const origin = req.get("origin");
-  if (origin && origin !== allowedOrigin) {
+  if (origin && !allowedOrigins.includes(origin)) {
     return next(new ApiError(403, "Invalid origin"));
   }
 

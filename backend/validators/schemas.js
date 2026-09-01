@@ -55,13 +55,23 @@ const addressSchema = Joi.object({
   city: Joi.string().trim().allow("").max(120),
   state: Joi.string().trim().allow("").max(120),
   postalCode: Joi.string().trim().allow("").max(20),
+  // Accept both spellings used by the frontend/backend address models.
+  pincode: Joi.string().trim().allow("").max(20),
   country: Joi.string().trim().allow("").max(120),
-});
+}).unknown(true);
 
+// The pricing service consumes `productId`. Older checkout clients sent
+// `product`; accept either form at the API boundary and normalize below.
 const cartItem = Joi.object({
-  product: Joi.string().trim().required(),
+  productId: Joi.string().trim(),
+  product: Joi.string().trim(),
   quantity: Joi.number().integer().min(1).max(50).required(),
-}).unknown(true); // pricing/name/etc. are re-derived server-side, so extra client fields are harmless
+}).custom((value, helpers) => {
+  if (!value.productId && !value.product) {
+    return helpers.error("any.invalid", { message: "productId is required" });
+  }
+  return { ...value, productId: value.productId || value.product };
+}).unknown(true);
 
 const createOrder = Joi.object({
   customerName: Joi.string().trim().min(1).max(120).required(),

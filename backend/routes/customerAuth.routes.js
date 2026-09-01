@@ -4,6 +4,7 @@ const { protectCustomer } = require("../middleware/customerAuth");
 const validate = require("../middleware/validate");
 const { requestOtp, customerRegister, customerLogin, customerResetPassword } = require("../validators/schemas");
 const controller = require("../controllers/customerAuth.controller");
+const profileController = require("../controllers/customerProfile.controller");
 
 const router = express.Router();
 
@@ -33,6 +34,8 @@ router.post("/reset-password", authLimiter, validate(customerResetPassword), con
 router.post("/google", authLimiter, controller.googleLogin);
 router.post("/logout", controller.logout);
 router.get("/me", protectCustomer, controller.me);
-router.patch("/profile", protectCustomer, controller.updateProfile);
+// Profile updates use a dedicated PATCH handler so partial address/name saves
+// do not fail with a generic 400 when the UI intentionally updates only one field.
+router.patch("/profile", protectCustomer, profileController.updateProfile);
 
 module.exports = router;

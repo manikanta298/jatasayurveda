@@ -6,6 +6,11 @@ const SiteSetting = require("../models/SiteSetting");
 /**
  * Recomputes pricing server-side from the product catalog — never trusts
  * client-submitted prices. Returns { items, subtotalPaise, shippingPaise, discountPaise, totalPaise }.
+ *
+ * Shipping is currently free (0 paise). The calculation intentionally reads
+ * commerce settings so a future admin/configuration change can introduce a
+ * flat shipping charge or a free-shipping threshold without changing the
+ * checkout/payment code.
  */
 async function priceOrder({ cartItems, couponCode }) {
   if (!Array.isArray(cartItems) || cartItems.length === 0) {
@@ -39,9 +44,21 @@ async function priceOrder({ cartItems, couponCode }) {
   }
 
   const commerceSettings = await SiteSetting.findOne({ key: "commerce" });
-  const freeShippingOver = commerceSettings?.value?.free_shipping_over_paise ?? Infinity;
-  const flatShipping = commerceSettings?.value?.flat_shipping_paise ?? 0;
-  const shippingPaise = subtotalPaise >= freeShippingOver ? 0 : flatShipping;
+  const freeShippingOver = commerceSettings?.value?.free_shipping_over_paise ?? null;
+  const configuredFlatShipping = commerceSettings?.value?.flat_shipping_paise ?? 0;
+
+  // Current policy: shipping is FREE. Future shipping charges remain
+  // configurable through commerce settings, but cannot accidentally become
+  // active merely because an old/stale database value exists. Set
+  // shipping_enabled=true when the business is ready to start charging.
+  const shippingEnabled = commerceSettings?.value?.shipping_enabled === true;
+  const flatShipping = Math.max(0, Number(configuredFlatShipping) || 0);
+  const freeShippingThreshold = freeShippingOver === null ? null : Math.max(0, Number(freeShippingOver) || 0);
+  const shippingPaise = !shippingEnabled
+    ? 0
+    : freeShippingThreshold !== null && subtotalPaise >= freeShippingThreshold
+      ? 0
+      : flatShipping;
 
   let discountPaise = 0;
   let appliedCoupon = null;

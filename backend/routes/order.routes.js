@@ -5,7 +5,7 @@ const { protectCustomer, identifyCustomer } = require("../middleware/customerAut
 const validate = require("../middleware/validate");
 const { createOrder, verifyPayment } = require("../validators/schemas");
 const controller = require("../controllers/order.controller");
-const { iciciRedirect } = require("../controllers/icici.controller");
+const { iciciRedirect } = require("../controllers/icici.redirect.controller");
 
 const router = express.Router();
 
@@ -23,10 +23,9 @@ router.post("/", checkoutLimiter, protectCustomer, validate(createOrder), contro
 router.post("/verify", checkoutLimiter, validate(verifyPayment), controller.verifyPayment);
 router.get("/my", protectCustomer, controller.listMyOrders);
 
-// ICICI Standard Mode: the existing checkout submits a small form to this
-// bridge. The bridge validates the per-order HMAC and redirects to
-// {redirectURI}?tranCtx=... without exposing ICICI's secret or transaction
-// context to the browser.
+// ICICI Standard Mode bridge: the existing checkout submits a small form,
+// the bridge validates the per-order HMAC, and then redirects to
+// {redirectURI}?tranCtx=... without exposing the ICICI secret.
 router.post("/icici/start", checkoutLimiter, iciciRedirect);
 router.post("/icici/return", controller.iciciReturn);
 router.post("/icici/advice", controller.iciciAdvice);

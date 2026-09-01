@@ -18,11 +18,25 @@ function getCommandUrl() {
   return process.env.ICICI_COMMAND_URL || (getEnvironment() === "production" ? PROD_COMMAND_URL : UAT_COMMAND_URL);
 }
 
+function getRedirectBridgeUrl() {
+  if (process.env.ICICI_REDIRECT_BRIDGE_URL) return process.env.ICICI_REDIRECT_BRIDGE_URL;
+  const returnUrl = String(process.env.ICICI_RETURN_URL || "");
+  if (!returnUrl) return "";
+  try {
+    const url = new URL(returnUrl);
+    url.pathname = url.pathname.replace(/\/return\/?$/i, "/redirect");
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
 function isEnabled() {
   return Boolean(
     process.env.ICICI_MERCHANT_ID &&
       process.env.ICICI_SECRET_KEY &&
-      process.env.ICICI_RETURN_URL
+      process.env.ICICI_RETURN_URL &&
+      getRedirectBridgeUrl()
   );
 }
 
@@ -30,28 +44,26 @@ function assertConfigured() {
   if (!isEnabled()) {
     throw new ApiError(
       503,
-      "ICICI Bank gateway is not configured. Set ICICI_MERCHANT_ID, ICICI_SECRET_KEY and ICICI_RETURN_URL in the backend environment."
+      "ICICI Bank gateway is not configured. Set ICICI_MERCHANT_ID, ICICI_SECRET_KEY, ICICI_RETURN_URL and ICICI_REDIRECT_BRIDGE_URL (or use the documented return URL path) in the backend environment."
     );
   }
 }
 
 /**
- * ICICI PG UAT reference hash:
- * - sort top-level parameter names ascending
- * - skip secureHash itself
- * - concatenate non-null values; nested objects are JSON-stringified
- * - HMAC-SHA256 with the merchant key
- * - lower-case hexadecimal output
+ * ICICI's merchant reference implementation: sort TOP-LEVEL keys alphabetically,
+ * exclude secureHash itself, concatenate scalar values as-is and JSON-stringify
+ * nested objects/arrays, then HMAC-SHA256 with the shared merchant key.
  */
-function generateSecureHash(requestData, secretKey) {
-  const hashText = Object.keys(requestData)
+function generateSecureHash(requestObj, secretKey) {
+  const data = requestObj || {};
+  const hashText = Object.keys(data)
     .sort()
     .filter((key) => key !== "secureHash")
     .map((key) => {
-      const value = requestData[key];
-      if (value !== null && typeof value === "object") return JSON.stringify(value);
-      if (value === undefined || value === null) return "";
-      return String(value);
+      const value = data[key];
+      if (value !== undefined && value !== null && typeof value === "object") return JSON.stringify(value);
+      if (value !== undefined && value !== null) return String(value);
+      return "";
     })
     .join("");
 
@@ -59,7 +71,7 @@ function generateSecureHash(requestData, secretKey) {
 }
 
 function hashesMatch(expected, received) {
-  if (!expected || !received) return false;
+  if (!expected || !received || !/^[0-9a-f]+$/i.test(String(received))) return false;
   const expectedBuf = Buffer.from(String(expected), "hex");
   const receivedBuf = Buffer.from(String(received), "hex");
   return expectedBuf.length === receivedBuf.length && crypto.timingSafeEqual(expectedBuf, receivedBuf);
@@ -67,16 +79,33 @@ function hashesMatch(expected, received) {
 
 function verifySecureHash(payload) {
   assertConfigured();
-  const received = payload?.secureHash;
-  const expected = generateSecureHash(payload || {}, process.env.ICICI_SECRET_KEY);
-  return hashesMatch(expected, received);
+  return hashesMatch(generateSecureHash(payload || {}, process.env.ICICI_SECRET_KEY), payload?.secureHash);
 }
 
 function makeMerchantTxnNo(orderNumber) {
-  // ICICI documents merchantTxnNo as alphanumeric only, max 20 characters.
   const value = String(orderNumber || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 20);
   if (!value) throw new ApiError(400, "Unable to generate ICICI transaction reference");
   return value;
+}
+
+function formatTxnDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(date)
+    .reduce((result, part) => {
+      result[part.type] = part.value;
+      return result;
+    }, {});
+
+  return `${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}${parts.second}`;
 }
 
 async function postJson(url, body) {
@@ -94,18 +123,25 @@ async function postJson(url, body) {
     throw new ApiError(502, `ICICI Bank returned a non-JSON response (HTTP ${response.status})`);
   }
 
-  if (!response.ok) {
-    throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`);
-  }
+  if (!response.ok) throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`);
   return data;
 }
 
 function isSuccessCode(code) {
-  return ["0", "00", "000", "0000", "R1000"].includes(String(code));
+  return ["0", "00", "000", "0000", "R1000", "P1000"].includes(String(code));
 }
 
 function isSuccessfulTransaction(status, responseCode) {
-  return String(status).toUpperCase() === "SUC" && ["000", "0000"].includes(String(responseCode));
+  return String(status).toUpperCase() === "SUC" && String(responseCode) === "0000";
+}
+
+function validateCustomerFields(order) {
+  const email = String(order.customerEmail || "");
+  const mobile = String(order.customerPhone || "");
+  const name = String(order.customerName || "");
+  if (email.length > 48) throw new ApiError(400, "Customer email is too long for ICICI Bank payment");
+  if (mobile.length > 13) throw new ApiError(400, "Customer mobile number is too long for ICICI Bank payment");
+  if (name.length > 45) throw new ApiError(400, "Customer name is too long for ICICI Bank payment");
 }
 
 module.exports = {
@@ -116,12 +152,13 @@ module.exports = {
   verifySecureHash,
   isSuccessCode,
   isSuccessfulTransaction,
+  formatTxnDate,
 
   async createOrder({ order }) {
     assertConfigured();
+    validateCustomerFields(order);
 
     const merchantTxnNo = makeMerchantTxnNo(order.orderNumber);
-    const txnDate = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
     const request = {
       aggregatorID: process.env.ICICI_AGGREGATOR_ID,
       amount: (order.totalPaise / 100).toFixed(2),
@@ -134,16 +171,21 @@ module.exports = {
       payType: 0,
       returnURL: process.env.ICICI_RETURN_URL,
       transactionType: "SALE",
-      txnDate,
+      txnDate: formatTxnDate(),
     };
 
     if (process.env.ICICI_PAYMENT_MODE) request.paymentMode = process.env.ICICI_PAYMENT_MODE;
     if (process.env.ICICI_TXN_CHANNEL) request.txnChannel = process.env.ICICI_TXN_CHANNEL;
 
+    const udfFields = {};
+    if (process.env.ICICI_UDF23) udfFields.udf23 = process.env.ICICI_UDF23;
+    if (process.env.ICICI_UDF24) udfFields.udf24 = process.env.ICICI_UDF24;
+    if (Object.keys(udfFields).length) request.udfFields = udfFields;
+
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
 
     const response = await postJson(getSaleUrl(), request);
-    if (!isSuccessCode(response.responseCode)) {
+    if (String(response.responseCode) !== "R1000") {
       throw new ApiError(502, response.respDescription || "ICICI Bank could not initiate the payment");
     }
     if (!response.redirectURI || !response.tranCtx) {
@@ -154,9 +196,11 @@ module.exports = {
     order.gatewayTranCtx = response.tranCtx;
     order.gatewayRequestHash = request.secureHash;
 
-    const startUrl = process.env.ICICI_START_URL || new URL(
-      String(process.env.ICICI_RETURN_URL).replace(/\/+$/, "")
-    ).toString().replace(/\/return$/, "/start");
+    const bridgePayload = `${merchantTxnNo}|${response.tranCtx}`;
+    const bridgeRequestHash = crypto
+      .createHmac("sha256", process.env.ICICI_SECRET_KEY)
+      .update(bridgePayload, "utf8")
+      .digest("hex");
 
     console.info("[icici] sale initiated", {
       merchantTxnNo,
@@ -169,11 +213,10 @@ module.exports = {
       gatewayOrderId: merchantTxnNo,
       clientConfig: {
         merchantId: process.env.ICICI_MERCHANT_ID,
-        requestHash: request.secureHash,
-        redirectUrl: startUrl,
+        requestHash: bridgeRequestHash,
+        redirectUrl: getRedirectBridgeUrl(),
         amount: order.totalPaise,
         currency: order.currency,
-        orderNumber: order.orderNumber,
       },
       initialStatus: "created",
     };
@@ -200,16 +243,14 @@ module.exports = {
     return response;
   },
 
-  /**
-   * Browser return/advice payloads are trusted only after their callback hash
-   * is independently recomputed. The final payment decision is then made from
-   * ICICI's server-to-server STATUS API, never from the browser callback alone.
-   */
   async verifyPayment({ order, payload }) {
     assertConfigured();
     if (!order || !payload) throw new ApiError(400, "Invalid ICICI payment response");
     if (String(payload.merchantTxnNo) !== String(order.gatewayOrderId)) {
       throw new ApiError(400, "ICICI payment does not match this order");
+    }
+    if (String(payload.merchantId) !== String(process.env.ICICI_MERCHANT_ID)) {
+      throw new ApiError(400, "ICICI payment merchant mismatch");
     }
     if (!verifySecureHash(payload)) {
       throw new ApiError(400, "ICICI payment response signature verification failed");
@@ -217,7 +258,11 @@ module.exports = {
 
     const status = await this.checkStatus({ originalTxnNo: order.gatewayOrderId });
     const paid = isSuccessfulTransaction(status.txnStatus, status.txnResponseCode);
-    const finalStatus = paid ? "paid" : String(status.txnStatus).toUpperCase() === "REJ" ? "cancelled" : "created";
+    const finalStatus = paid
+      ? "paid"
+      : String(status.txnStatus).toUpperCase() === "REJ"
+        ? "cancelled"
+        : "created";
 
     console.info("[icici] payment status confirmed", {
       merchantTxnNo: order.gatewayOrderId,

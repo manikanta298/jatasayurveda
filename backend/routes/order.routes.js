@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protect, requireRole } = require("../middleware/auth");
-const { protectCustomer } = require("../middleware/customerAuth");
+const { protectCustomer, identifyCustomer } = require("../middleware/customerAuth");
 const validate = require("../middleware/validate");
 const { createOrder, verifyPayment } = require("../validators/schemas");
 const controller = require("../controllers/order.controller");
@@ -26,7 +26,10 @@ router.get("/payment-methods", controller.paymentMethods);
 router.post("/", checkoutLimiter, protectCustomer, validate(createOrder), controller.createOrder);
 router.post("/verify", checkoutLimiter, validate(verifyPayment), controller.verifyPayment);
 router.get("/my", protectCustomer, controller.listMyOrders);
-router.get("/:orderNumber", controller.getByOrderNumber);
+router.post("/icici/start", identifyCustomer, controller.iciciStart);
+router.post("/icici/return", controller.iciciReturn);
+router.post("/icici/advice", controller.iciciAdvice);
+router.get("/:orderNumber", identifyCustomer, controller.getByOrderNumber);
 
 // Admin management
 router.get("/admin/all", ...adminGuard, controller.listOrders);

@@ -64,6 +64,9 @@ const orderSchema = new mongoose.Schema(
     gatewayOrderId: { type: String, unique: true, sparse: true },
     gatewayPaymentId: { type: String, unique: true, sparse: true },
     gatewaySignature: { type: String },
+    gatewayRedirectUrl: { type: String },
+    gatewayTranCtx: { type: String },
+    gatewayRequestHash: { type: String },
     // Optional: set when the buyer was signed in to a customer account at checkout. Guests leave this null.
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
     paymentStatus: { type: String, enum: ["pending", "paid", "collected"], default: "pending" },

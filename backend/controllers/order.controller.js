@@ -8,6 +8,67 @@ const Coupon = require("../models/Coupon");
 const Notification = require("../models/Notification");
 const { priceOrder } = require("../services/order.service");
 const { getGateway, listEnabledGateways } = require("../services/payments");
+const iciciProvider = require("../services/payments/icici.provider");
+
+async function finalizeOrderPayment({ order, verified, session }) {
+  if (!verified.paid && verified.finalStatus === "created") {
+    order.gatewayPaymentId = verified.gatewayPaymentId;
+    order.gatewaySignature = verified.gatewaySignature;
+    await order.save({ session });
+    return order;
+  }
+
+  order.status = verified.finalStatus;
+  if (verified.paid) {
+    order.paidAt = new Date();
+    order.paymentStatus = "paid";
+  }
+  order.statusHistory.push({
+    fromStatus: "created",
+    toStatus: verified.finalStatus,
+    note: verified.paid ? "Payment verified" : "Payment rejected by ICICI Bank",
+  });
+  await order.save({ session });
+
+  if (!verified.paid) return order;
+
+  for (const item of order.items) {
+    const updated = await Product.updateOne(
+      { _id: item.product, stockQuantity: { $gte: item.quantity } },
+      { $inc: { stockQuantity: -item.quantity } },
+      { session }
+    );
+    if (!updated.modifiedCount) {
+      throw new ApiError(409, `Insufficient stock for ${item.name}`);
+    }
+  }
+
+  if (order.couponCode) {
+    await Coupon.updateOne({ code: order.couponCode }, { $inc: { usedCount: 1 } }, { session });
+  }
+
+  await Notification.create(
+    [
+      {
+        type: "new_order",
+        title: `New order ${order.orderNumber}`,
+        message: `${order.customerName} placed an order for ₹${(order.totalPaise / 100).toFixed(2)}`,
+        link: `/admin/orders/${order._id}`,
+        recipientRoles: ["admin", "order_manager"],
+      },
+    ],
+    { session }
+  );
+
+  return order;
+}
+
+function getFrontendUrl() {
+  return (process.env.ICICI_FRONTEND_URL || process.env.CLIENT_URL || "https://jatasayurveda.com")
+    .split(",")[0]
+    .trim()
+    .replace(/\/+$/, "");
+}
 
 function escapeRegExp(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -18,10 +79,8 @@ const paymentMethods = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, listEnabledGateways());
 });
 
-// POST /api/v1/orders  — public checkout step 1: price the cart, create a
+// POST /api/v1/orders — public checkout step 1: price the cart, create a
 // pending Order + a matching gateway order for the frontend checkout step.
-// `protectCustomer` middleware requires the buyer to be signed in — guest
-// checkout is intentionally disabled, so req.customer is always set here.
 const createOrder = asyncHandler(async (req, res) => {
   const { customerName, customerEmail, customerPhone, shippingAddress, cartItems, couponCode, notes, paymentMethod } =
     req.body;
@@ -99,48 +158,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
         payload: { gatewayOrderId, gatewayPaymentId, gatewaySignature },
       });
 
-      order.gatewayPaymentId = verified.gatewayPaymentId;
-      order.gatewaySignature = verified.gatewaySignature;
-      order.status = verified.finalStatus;
-      if (verified.paid) { order.paidAt = new Date(); order.paymentStatus = "paid"; }
-      order.statusHistory.push({
-        fromStatus: "created",
-        toStatus: verified.finalStatus,
-        note: verified.paid ? "Payment verified" : "Order confirmed (payment on delivery)",
-      });
-      await order.save({ session });
-
-      // Decrement stock now that the order is confirmed, guarding against
-      // overselling if stock ran out between checkout and confirmation.
-      for (const item of order.items) {
-        const updated = await Product.updateOne(
-          { _id: item.product, stockQuantity: { $gte: item.quantity } },
-          { $inc: { stockQuantity: -item.quantity } },
-          { session }
-        );
-        if (!updated.modifiedCount) {
-          throw new ApiError(409, `Insufficient stock for ${item.name}`);
-        }
-      }
-
-      if (order.couponCode) {
-        await Coupon.updateOne({ code: order.couponCode }, { $inc: { usedCount: 1 } }, { session });
-      }
-
-      await Notification.create(
-        [
-          {
-            type: "new_order",
-            title: `New order ${order.orderNumber}`,
-            message: `${order.customerName} placed an order for ₹${(order.totalPaise / 100).toFixed(2)}`,
-            link: `/admin/orders/${order._id}`,
-            recipientRoles: ["admin", "order_manager"],
-          },
-        ],
-        { session }
-      );
-
-      return order;
+      return finalizeOrderPayment({ order, verified, session });
     });
 
     return sendSuccess(res, 200, { orderNumber: result.orderNumber, status: result.status });
@@ -149,7 +167,89 @@ const verifyPayment = asyncHandler(async (req, res) => {
   }
 });
 
-// GET /api/v1/orders/:orderNumber — public order lookup (customer tracking page)
+// POST /api/v1/orders/icici/start — bridge used by the existing checkout form.
+const iciciStart = asyncHandler(async (req, res) => {
+  const orderNumber = String(req.body?.orderNumber || "").trim();
+  if (!orderNumber) throw new ApiError(400, "Missing ICICI order reference");
+
+  const order = await Order.findOne({ orderNumber, paymentMethod: "icici", status: "created" });
+  if (!order) throw new ApiError(404, "ICICI order not found");
+
+  if (req.customer && order.customer && String(req.customer._id) !== String(order.customer)) {
+    throw new ApiError(403, "Order does not belong to the signed-in customer");
+  }
+  if (!order.gatewayRedirectUrl || !order.gatewayTranCtx) {
+    throw new ApiError(409, "ICICI payment session is unavailable; please restart checkout");
+  }
+
+  const redirectUrl = new URL(order.gatewayRedirectUrl);
+  redirectUrl.searchParams.set("tranCtx", order.gatewayTranCtx);
+  console.info("[icici] redirecting customer to hosted payment page", { merchantTxnNo: order.gatewayOrderId });
+  return res.redirect(redirectUrl.toString());
+});
+
+// POST /api/v1/orders/icici/return — ICICI browser POST callback.
+const iciciReturn = asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  if (!payload.merchantTxnNo) throw new ApiError(400, "Missing ICICI merchant transaction reference");
+
+  const order = await Order.findOne({ paymentMethod: "icici", gatewayOrderId: payload.merchantTxnNo });
+  if (!order) throw new ApiError(404, "ICICI order not found");
+
+  if (order.status === "paid" || order.status === "processing" || order.status === "shipped" || order.status === "delivered") {
+    return res.redirect(`${getFrontendUrl()}/order/${encodeURIComponent(order.orderNumber)}?payment=success`);
+  }
+
+  const verified = await iciciProvider.verifyPayment({ order, payload });
+  const session = await mongoose.startSession();
+  try {
+    const result = await session.withTransaction(async () => {
+      const current = await Order.findById(order._id).session(session);
+      if (!current) throw new ApiError(404, "ICICI order not found");
+      if (current.status !== "created") return current;
+      return finalizeOrderPayment({ order: current, verified, session });
+    });
+
+    const paymentState = result.status === "paid" ? "success" : result.status === "cancelled" ? "failed" : "pending";
+    console.info("[icici] browser return processed", { merchantTxnNo: payload.merchantTxnNo, paymentState });
+    return res.redirect(`${getFrontendUrl()}/order/${encodeURIComponent(result.orderNumber)}?payment=${paymentState}`);
+  } finally {
+    session.endSession();
+  }
+});
+
+// POST /api/v1/orders/icici/advice — ICICI server-to-server Payment Advice.
+const iciciAdvice = asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  if (!payload.merchantTxnNo) return res.sendStatus(200);
+
+  const order = await Order.findOne({ paymentMethod: "icici", gatewayOrderId: payload.merchantTxnNo });
+  if (!order) return res.sendStatus(200);
+  if (!iciciProvider.verifySecureHash(payload)) {
+    console.warn("[icici] rejected advice with invalid secureHash", { merchantTxnNo: payload.merchantTxnNo });
+    return res.sendStatus(400);
+  }
+
+  const verified = await iciciProvider.verifyPayment({ order, payload });
+  if (order.status === "paid" || order.status === "processing" || order.status === "shipped" || order.status === "delivered") {
+    return res.sendStatus(200);
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const current = await Order.findById(order._id).session(session);
+      if (!current || current.status !== "created") return;
+      await finalizeOrderPayment({ order: current, verified, session });
+    });
+  } finally {
+    session.endSession();
+  }
+
+  console.info("[icici] payment advice processed", { merchantTxnNo: payload.merchantTxnNo, paid: verified.paid });
+  return res.sendStatus(200);
+});
+
 // GET /api/v1/orders/:orderNumber — public order lookup (customer tracking page).
 // Anyone who has (or guesses) the order number can check status, but full
 // customer details (name, email, phone, shipping address) are only returned
@@ -165,7 +265,8 @@ const getByOrderNumber = asyncHandler(async (req, res) => {
   const { email, phone } = req.query;
   const emailMatches = email && order.customerEmail?.toLowerCase() === String(email).toLowerCase();
   const phoneMatches = phone && order.customerPhone === String(phone);
-  const verified = Boolean(emailMatches || phoneMatches);
+  const customerMatches = req.customer && order.customer && String(req.customer._id) === String(order.customer);
+  const verified = Boolean(emailMatches || phoneMatches || customerMatches);
 
   const base = {
     orderNumber: order.orderNumber,
@@ -268,6 +369,9 @@ module.exports = {
   paymentMethods,
   createOrder,
   verifyPayment,
+  iciciStart,
+  iciciReturn,
+  iciciAdvice,
   getByOrderNumber,
   listOrders,
   getOrderById,

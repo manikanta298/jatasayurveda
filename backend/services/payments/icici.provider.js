@@ -20,11 +20,12 @@ function getCommandUrl() {
 
 function getRedirectBridgeUrl() {
   if (process.env.ICICI_REDIRECT_BRIDGE_URL) return process.env.ICICI_REDIRECT_BRIDGE_URL;
+  if (process.env.ICICI_START_URL) return process.env.ICICI_START_URL;
   const returnUrl = String(process.env.ICICI_RETURN_URL || "");
   if (!returnUrl) return "";
   try {
     const url = new URL(returnUrl);
-    url.pathname = url.pathname.replace(/\/return\/?$/i, "/redirect");
+    url.pathname = url.pathname.replace(/\/return\/?$/i, "/start");
     return url.toString();
   } catch {
     return "";
@@ -44,16 +45,11 @@ function assertConfigured() {
   if (!isEnabled()) {
     throw new ApiError(
       503,
-      "ICICI Bank gateway is not configured. Set ICICI_MERCHANT_ID, ICICI_SECRET_KEY, ICICI_RETURN_URL and ICICI_REDIRECT_BRIDGE_URL (or use the documented return URL path) in the backend environment."
+      "ICICI Bank gateway is not configured. Set ICICI_MERCHANT_ID, ICICI_SECRET_KEY, ICICI_RETURN_URL and ICICI_START_URL (or ICICI_REDIRECT_BRIDGE_URL) in the backend environment."
     );
   }
 }
 
-/**
- * ICICI's merchant reference implementation: sort TOP-LEVEL keys alphabetically,
- * exclude secureHash itself, concatenate scalar values as-is and JSON-stringify
- * nested objects/arrays, then HMAC-SHA256 with the shared merchant key.
- */
 function generateSecureHash(requestObj, secretKey) {
   const data = requestObj || {};
   const hashText = Object.keys(data)

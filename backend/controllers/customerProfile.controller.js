@@ -41,8 +41,7 @@ function normalizeAddress(input, existing = {}, label = "Address") {
   const source = input && typeof input === "object" ? input : {};
   const out = { label: cleanString(source.label) || cleanString(existing.label) || label };
 
-  // Profile updates are PATCH operations. Missing address fields retain the
-  // existing value instead of being converted to empty strings and rejected.
+  // PATCH semantics: fields omitted by the UI retain their existing values.
   for (const field of ADDRESS_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(source, field)) {
       out[field] = cleanString(source[field]);
@@ -81,9 +80,6 @@ const updateProfile = asyncHandler(async (req, res) => {
     customer.name = nextName;
   }
 
-  // Preferred format: { addresses: [...] }. Merge by id when an existing
-  // address id is supplied; this prevents an edit of one field from erasing
-  // the other saved fields.
   if (Array.isArray(addresses)) {
     if (addresses.length > 3) throw new ApiError(400, "You can save up to 3 addresses");
 
@@ -97,7 +93,6 @@ const updateProfile = asyncHandler(async (req, res) => {
       return normalizeAddress(input, previous || {}, `Address ${index + 1}`);
     });
 
-    // Keep exactly one default address when addresses are supplied.
     let defaultIndex = normalized.findIndex((item) => item.isDefault);
     if (defaultIndex < 0 && normalized.length) defaultIndex = 0;
     normalized.forEach((item, index) => {
@@ -117,7 +112,6 @@ const updateProfile = asyncHandler(async (req, res) => {
       };
     }
   } else if (address && typeof address === "object" && !Array.isArray(address)) {
-    // Legacy/single-address format: merge only the fields supplied by the UI.
     const current = customer.address?.toObject?.() || customer.address || {};
     customer.address = normalizeAddress(address, current, "Home");
 
@@ -130,8 +124,6 @@ const updateProfile = asyncHandler(async (req, res) => {
       }
     }
   } else {
-    // Also accept flat address fields from simple profile forms:
-    // { line1, city, state, postalCode, country }.
     const hasFlatAddress = ADDRESS_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(body, field));
     if (hasFlatAddress) {
       const current = customer.address?.toObject?.() || customer.address || {};
@@ -164,4 +156,4 @@ const updateProfile = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, publicCustomer(customer));
 });
 
-module.exports = { updateProfile };
+module.exports = { updateProfile, normalizeAddress };

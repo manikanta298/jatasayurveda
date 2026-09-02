@@ -55,13 +55,10 @@ const addressSchema = Joi.object({
   city: Joi.string().trim().allow("").max(120),
   state: Joi.string().trim().allow("").max(120),
   postalCode: Joi.string().trim().allow("").max(20),
-  // Accept both spellings used by the frontend/backend address models.
   pincode: Joi.string().trim().allow("").max(20),
   country: Joi.string().trim().allow("").max(120),
 }).unknown(true);
 
-// The pricing service consumes `productId`. Older checkout clients sent
-// `product`; accept either form at the API boundary and normalize below.
 const cartItem = Joi.object({
   productId: Joi.string().trim(),
   product: Joi.string().trim(),
@@ -84,25 +81,12 @@ const createOrder = Joi.object({
   paymentMethod: Joi.string().trim().optional(),
 });
 
-// Verification fields are gateway-specific:
-// - Razorpay's browser callback must provide payment id + signature.
-// - COD has neither because there is no online payment to verify.
-// - ICICI Standard Mode completes verification through its signed return
-//   and server-to-server advice, followed by a STATUS request; checkout does
-//   not call /orders/verify for that flow.
+// The browser verification endpoint is retained only for COD. ICICI Standard
+// Mode is completed by the signed browser return / Payment Advice and a
+// server-side STATUS check, so it must never be finalized through this API.
 const verifyPayment = Joi.object({
-  paymentMethod: Joi.string().trim().required(),
+  paymentMethod: Joi.string().valid("cod").required(),
   gatewayOrderId: Joi.string().trim().required(),
-  gatewayPaymentId: Joi.when("paymentMethod", {
-    is: "razorpay",
-    then: Joi.string().trim().required(),
-    otherwise: Joi.string().trim().allow("", null).optional(),
-  }),
-  gatewaySignature: Joi.when("paymentMethod", {
-    is: "razorpay",
-    then: Joi.string().trim().required(),
-    otherwise: Joi.string().trim().allow("", null).optional(),
-  }),
 });
 
 module.exports = {

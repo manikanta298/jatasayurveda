@@ -29,6 +29,7 @@ router.get("/my", protectCustomer, controller.listMyOrders);
 router.post("/icici/start", checkoutLimiter, iciciRedirect);
 router.post("/icici/return", controller.iciciReturn);
 router.post("/icici/advice", controller.iciciAdvice);
+router.get("/icici/diagnostics", ...adminGuard, controller.iciciDiagnostics);
 
 router.get("/:orderNumber", identifyCustomer, controller.getByOrderNumber);
 

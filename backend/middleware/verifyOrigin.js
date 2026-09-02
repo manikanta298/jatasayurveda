@@ -11,7 +11,18 @@ const configuredOrigins = (process.env.CLIENT_URL || "")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])]
-  .map((origin) => new URL(origin).origin);
+  .map((origin) => {
+    try {
+      return new URL(origin).origin;
+    } catch {
+      // A malformed CLIENT_URL entry (missing scheme, stray characters, etc.)
+      // must not crash the whole server at boot — that would take down every
+      // route, not just CORS, and show up as a 502 with no clear cause.
+      console.warn(`[verifyOrigin] Ignoring invalid origin in CLIENT_URL: "${origin}"`);
+      return null;
+    }
+  })
+  .filter(Boolean);
 
 /**
  * Because auth is accepted via cookie, CORS alone doesn't stop CSRF — a

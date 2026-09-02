@@ -15,6 +15,14 @@ agenda.on("fail", (err, job) => {
   console.error(`[agenda] Job "${job.attrs.name}" failed: ${err.message}`);
 });
 
+agenda.on("error", (err) => {
+  // Without this listener, an EventEmitter "error" event with no listener
+  // throws synchronously and crashes the entire Node process — not just
+  // this feature. A dropped/unstable MongoDB connection would otherwise
+  // take the whole API down (502s on every route) instead of just logging.
+  console.error("[agenda] Connection error:", err.message);
+});
+
 async function startAgenda() {
   await agenda.start();
   console.log("[agenda] Background job queue started");

@@ -39,3 +39,17 @@ start();
 process.on("unhandledRejection", (err) => {
   console.error("[server] Unhandled rejection:", err);
 });
+
+process.on("uncaughtException", (err) => {
+  // A synchronous throw outside an Express request handler (module-load
+  // code, a timer callback, an EventEmitter) isn't caught by
+  // asyncHandler/Express's error middleware and otherwise kills the whole
+  // process immediately — every route, not just one — which is what shows
+  // up to users as a 502 Bad Gateway until the host restarts it. Logging
+  // here leaves a diagnosable stack trace instead of a silent crash.
+  // Exiting (rather than continuing) is intentional: process state after an
+  // uncaught exception can't be trusted, so let the host's process manager
+  // restart cleanly.
+  console.error("[server] Uncaught exception:", err);
+  process.exit(1);
+});

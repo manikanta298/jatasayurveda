@@ -84,11 +84,19 @@ const createOrder = Joi.object({
   paymentMethod: Joi.string().trim().optional(),
 });
 
+// Verification fields vary by gateway:
+// - Razorpay supplies gatewayPaymentId + gatewaySignature from Checkout.
+// - COD supplies neither field.
+// - ICICI Standard Mode does not call this browser endpoint after checkout;
+//   its signed browser return and server-to-server advice are handled by
+//   /orders/icici/return and /orders/icici/advice, followed by ICICI STATUS.
+// Keep only the common order/gateway discriminator required at this API
+// boundary; each provider performs its own gateway-specific validation.
 const verifyPayment = Joi.object({
   paymentMethod: Joi.string().trim().required(),
   gatewayOrderId: Joi.string().trim().required(),
-  gatewayPaymentId: Joi.string().trim().required(),
-  gatewaySignature: Joi.string().trim().allow("").optional(),
+  gatewayPaymentId: Joi.string().trim().allow("", null).optional(),
+  gatewaySignature: Joi.string().trim().allow("", null).optional(),
 });
 
 module.exports = {

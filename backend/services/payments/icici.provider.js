@@ -42,11 +42,19 @@ function isEnabled() {
 }
 
 function assertConfigured() {
-  if (!isEnabled()) {
-    throw new ApiError(
-      503,
-      "ICICI Bank gateway is not configured. Set ICICI_MERCHANT_ID, ICICI_SECRET_KEY, ICICI_RETURN_URL and ICICI_START_URL (or ICICI_REDIRECT_BRIDGE_URL) in the backend environment."
-    );
+  const missing = [];
+  if (!process.env.ICICI_MERCHANT_ID) missing.push("ICICI_MERCHANT_ID");
+  if (!process.env.ICICI_AGGREGATOR_ID) missing.push("ICICI_AGGREGATOR_ID");
+  if (!process.env.ICICI_SECRET_KEY) missing.push("ICICI_SECRET_KEY");
+  if (!process.env.ICICI_RETURN_URL) missing.push("ICICI_RETURN_URL");
+  if (!getRedirectBridgeUrl()) missing.push("ICICI_START_URL or ICICI_REDIRECT_BRIDGE_URL");
+
+  if (missing.length) {
+    throw new ApiError(503, "ICICI Bank gateway is not configured", {
+      gateway: "icici",
+      environment: getEnvironment(),
+      missing,
+    });
   }
 }
 
@@ -104,22 +112,83 @@ function formatTxnDate(date = new Date()) {
   return `${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}${parts.second}`;
 }
 
-async function postJson(url, body) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
+function safeGatewayResponse(data) {
+  if (!data || typeof data !== "object") return { rawType: typeof data };
+  const allowedKeys = [
+    "responseCode",
+    "respDescription",
+    "txnStatus",
+    "txnResponseCode",
+    "txnRespDescription",
+    "merchantId",
+    "merchantTxnNo",
+    "transactionType",
+    "redirectURI",
+    "showOTPCapturePage",
+    "tranCtx",
+  ];
+  return Object.fromEntries(
+    allowedKeys.filter((key) => data[key] !== undefined && data[key] !== null).map((key) => [key, data[key]])
+  );
+}
+
+async function postJson(url, body, operation = "ICICI API request") {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const reason = error?.name === "AbortError" ? "request timed out after 15 seconds" : error?.message || "network error";
+    console.error("[icici] gateway network error", { operation, url, reason });
+    throw new ApiError(502, `Unable to reach ICICI Bank: ${reason}`, {
+      gateway: "icici",
+      environment: getEnvironment(),
+      operation,
+      endpoint: url,
+      reason,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const text = await response.text();
   let data;
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new ApiError(502, `ICICI Bank returned a non-JSON response (HTTP ${response.status})`);
+    console.error("[icici] non-JSON gateway response", { operation, httpStatus: response.status, bodyPreview: text.slice(0, 300) });
+    throw new ApiError(502, `ICICI Bank returned a non-JSON response (HTTP ${response.status})`, {
+      gateway: "icici",
+      environment: getEnvironment(),
+      operation,
+      httpStatus: response.status,
+      bodyPreview: text.slice(0, 300),
+    });
   }
 
-  if (!response.ok) throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`);
+  console.info("[icici] gateway response", {
+    operation,
+    httpStatus: response.status,
+    ...safeGatewayResponse(data),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`, {
+      gateway: "icici",
+      environment: getEnvironment(),
+      operation,
+      httpStatus: response.status,
+      icici: safeGatewayResponse(data),
+    });
+  }
+
   return data;
 }
 
@@ -180,12 +249,40 @@ module.exports = {
 
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
 
-    const response = await postJson(getSaleUrl(), request);
+    console.info("[icici] initiating UAT/production sale", {
+      environment: getEnvironment(),
+      endpoint: getSaleUrl(),
+      merchantTxnNo,
+      amount: request.amount,
+      currencyCode: request.currencyCode,
+      payType: request.payType,
+      transactionType: request.transactionType,
+      returnURL: request.returnURL,
+      hasSecureHash: Boolean(request.secureHash),
+    });
+
+    const response = await postJson(getSaleUrl(), request, "Initiate Sale");
     if (String(response.responseCode) !== "R1000") {
-      throw new ApiError(502, response.respDescription || "ICICI Bank could not initiate the payment");
+      const icici = safeGatewayResponse(response);
+      console.warn("[icici] Initiate Sale rejected", icici);
+      throw new ApiError(502, response.respDescription || "ICICI Bank could not initiate the payment", {
+        gateway: "icici",
+        environment: getEnvironment(),
+        operation: "Initiate Sale",
+        icici,
+      });
     }
     if (!response.redirectURI || !response.tranCtx) {
-      throw new ApiError(502, "ICICI Bank returned an incomplete payment redirect response");
+      throw new ApiError(502, "ICICI Bank returned an incomplete payment redirect response", {
+        gateway: "icici",
+        environment: getEnvironment(),
+        operation: "Initiate Sale",
+        icici: safeGatewayResponse(response),
+        missing: [
+          !response.redirectURI ? "redirectURI" : null,
+          !response.tranCtx ? "tranCtx" : null,
+        ].filter(Boolean),
+      });
     }
 
     order.gatewayRedirectUrl = response.redirectURI;
@@ -231,9 +328,14 @@ module.exports = {
     };
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
 
-    const response = await postJson(getCommandUrl(), request);
+    const response = await postJson(getCommandUrl(), request, "STATUS");
     if (!verifySecureHash(response)) {
-      throw new ApiError(502, "ICICI Bank status response signature verification failed");
+      throw new ApiError(502, "ICICI Bank status response signature verification failed", {
+        gateway: "icici",
+        environment: getEnvironment(),
+        operation: "STATUS",
+        icici: safeGatewayResponse(response),
+      });
     }
 
     return response;

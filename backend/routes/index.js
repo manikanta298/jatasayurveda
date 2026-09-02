@@ -20,7 +20,7 @@ router.use("/contact", require("./contact.routes"));
 router.use("/settings", require("./siteSetting.routes"));
 router.use("/media", require("./media.routes"));
 
-// --- Phase 3: auth, orders, Razorpay, notifications, dashboard ---
+// --- Auth, orders, ICICI payments, notifications, dashboard ---
 router.use("/auth", require("./auth.routes"));
 router.use("/orders", require("./order.routes"));
 router.use("/notifications", require("./notification.routes"));

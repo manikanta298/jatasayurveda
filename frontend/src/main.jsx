@@ -10,6 +10,7 @@ import { CustomerAuthProvider } from "./lib/customerAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import AppRouter from "./router";
 import "./styles.css";
+import "./mobile-cart-checkout.css";
 
 const queryClient = new QueryClient();
 

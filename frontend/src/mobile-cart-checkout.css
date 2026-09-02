@@ -1,0 +1,111 @@
+/* Mobile cart + checkout responsive fixes */
+
+@media (max-width: 767px) {
+  /* Prevent any page-level horizontal overflow on phones. */
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Cart: stack each product vertically so the image and controls never
+     compete for the narrow mobile width. */
+  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li > a {
+    width: 100%;
+    height: 180px;
+  }
+
+  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li a.truncate {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Cart and checkout summaries should flow naturally below the content on
+     mobile; sticky sidebars are useful on desktop but cause awkward mobile
+     scrolling/positioning. */
+  aside.sticky.top-24 {
+    position: static !important;
+    top: auto !important;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Checkout: reduce card padding and vertical gaps to make the form compact
+     without changing the desktop design. */
+  section:has(> form > aside.sticky.top-24) > form {
+    margin-top: 2rem;
+    gap: 20px;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 {
+    gap: 20px;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  /* Stack saved addresses into one-column cards. */
+  section:has(> form > aside.sticky.top-24) > form .grid.sm\:grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* The two-field rows become single-column on phones. */
+  section:has(> form > aside.sticky.top-24) > form .grid.sm\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Keep all form controls inside the viewport. */
+  section:has(> form > aside.sticky.top-24) input,
+  section:has(> form > aside.sticky.top-24) textarea,
+  section:has(> form > aside.sticky.top-24) button {
+    max-width: 100%;
+  }
+
+  /* Slightly smaller checkout heading and page spacing on small screens. */
+  section:has(> form > aside.sticky.top-24) > h1 {
+    font-size: 2rem;
+    line-height: 1.1;
+  }
+
+  section:has(> form > aside.sticky.top-24),
+  section:has(> h1 + div > ul.space-y-4) {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+}
+
+@media (max-width: 374px) {
+  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li > a {
+    height: 150px;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > aside {
+    padding: 14px;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section {
+    padding: 14px;
+  }
+}

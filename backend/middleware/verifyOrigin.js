@@ -1,11 +1,16 @@
 const ApiError = require("../utils/ApiError");
 
-// Keep CSRF origin validation aligned with the CORS configuration in app.js.
-// CLIENT_URL may hold a comma-separated list of trusted frontend origins.
-const allowedOrigins = (process.env.CLIENT_URL || "https://jatasayurveda.com,https://www.jatasayurveda.com")
+// Keep CSRF origin validation aligned with app.js. The production JATA
+// origins are always trusted; CLIENT_URL can add staging/development origins.
+const defaultAllowedOrigins = [
+  "https://jatasayurveda.com",
+  "https://www.jatasayurveda.com",
+];
+const configuredOrigins = (process.env.CLIENT_URL || "")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
-  .filter(Boolean)
+  .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])]
   .map((origin) => new URL(origin).origin);
 
 /**
@@ -14,9 +19,8 @@ const allowedOrigins = (process.env.CLIENT_URL || "https://jatasayurveda.com,htt
  * with the cookie attached. This checks the Origin header on state-changing
  * requests and rejects anything that doesn't match our known frontend.
  *
- * Requests without an Origin header (server-to-server calls, some non-browser
- * clients) are allowed through, since Origin spoofing there doesn't grant an
- * attacker anything a browser-based CSRF attack would.
+ * Requests without an Origin header (server-to-server calls, ICICI callbacks,
+ * health checks and some non-browser clients) are allowed through.
  */
 module.exports = function verifyOrigin(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {

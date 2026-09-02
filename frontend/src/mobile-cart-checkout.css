@@ -1,7 +1,6 @@
 /* Mobile cart + checkout responsive fixes */
 
 @media (max-width: 767px) {
-  /* Prevent any page-level horizontal overflow on phones. */
   html,
   body,
   #root {
@@ -16,12 +15,16 @@
     box-sizing: border-box;
   }
 
-  /* Cart: stack each product vertically so the image and controls never
-     compete for the narrow mobile width. */
+  img {
+    max-width: 100%;
+  }
+
+  /* CART */
   section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
     padding: 14px;
   }
 
@@ -35,64 +38,129 @@
     min-width: 0;
   }
 
-  section:has(> h1 + div > ul.space-y-4) > div.mt-10.grid > ul.space-y-4 > li a.truncate {
+  section:has(> h1 + div > ul.space-y-4) a.truncate {
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  /* Cart and checkout summaries should flow naturally below the content on
-     mobile; sticky sidebars are useful on desktop but cause awkward mobile
-     scrolling/positioning. */
-  aside.sticky.top-24 {
-    position: static !important;
-    top: auto !important;
+  /* CHECKOUT: make the entire mobile form a single fluid column. */
+  section:has(> form > aside.sticky.top-24) {
     width: 100%;
-    max-width: 100%;
+    min-width: 0;
+    padding-top: 32px;
+    padding-bottom: 48px;
   }
 
-  /* Checkout: reduce card padding and vertical gaps to make the form compact
-     without changing the desktop design. */
+  section:has(> form > aside.sticky.top-24) > h1 {
+    max-width: 100%;
+    font-size: 2rem;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  section:has(> form > aside.sticky.top-24) > p {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
   section:has(> form > aside.sticky.top-24) > form {
-    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    margin-top: 24px;
     gap: 20px;
   }
 
+  section:has(> form > aside.sticky.top-24) > form > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Reduce the large desktop card spacing on phones. */
   section:has(> form > aside.sticky.top-24) > form > div.space-y-8 {
+    display: flex;
+    flex-direction: column;
     gap: 20px;
   }
 
   section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section {
+    width: 100%;
+    min-width: 0;
     padding: 16px;
     border-radius: 20px;
   }
 
-  /* Stack saved addresses into one-column cards. */
+  /* All two-column form rows become one column. */
+  section:has(> form > aside.sticky.top-24) > form .grid.sm\:grid-cols-2,
   section:has(> form > aside.sticky.top-24) > form .grid.sm\:grid-cols-3 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
   }
 
-  /* The two-field rows become single-column on phones. */
-  section:has(> form > aside.sticky.top-24) > form .grid.sm\:grid-cols-2 {
-    grid-template-columns: 1fr;
+  section:has(> form > aside.sticky.top-24) > form .grid > * {
+    min-width: 0;
+    width: 100%;
   }
 
-  /* Keep all form controls inside the viewport. */
+  /* Saved-address header and manage button can wrap safely. */
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section > div > div.flex {
+    align-items: flex-start;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section > div > div.flex > * {
+    min-width: 0;
+  }
+
+  /* Form controls must never exceed the viewport. */
   section:has(> form > aside.sticky.top-24) input,
   section:has(> form > aside.sticky.top-24) textarea,
-  section:has(> form > aside.sticky.top-24) button {
+  section:has(> form > aside.sticky.top-24) button,
+  section:has(> form > aside.sticky.top-24) label {
     max-width: 100%;
   }
 
-  /* Slightly smaller checkout heading and page spacing on small screens. */
-  section:has(> form > aside.sticky.top-24) > h1 {
-    font-size: 2rem;
-    line-height: 1.1;
+  section:has(> form > aside.sticky.top-24) input,
+  section:has(> form > aside.sticky.top-24) textarea {
+    width: 100%;
+    min-width: 0;
   }
 
-  section:has(> form > aside.sticky.top-24),
-  section:has(> h1 + div > ul.space-y-4) {
-    padding-top: 32px;
-    padding-bottom: 48px;
+  /* Payment options stay inside the card. */
+  section:has(> form > aside.sticky.top-24) [role="radiogroup"] {
+    width: 100%;
+  }
+
+  section:has(> form > aside.sticky.top-24) [role="radio"] {
+    flex-shrink: 0;
+  }
+
+  /* Summary must flow below the form instead of acting like a desktop sidebar. */
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 {
+    position: static !important;
+    top: auto !important;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 ul,
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 li {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 li > p:last-child {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 button {
+    width: 100%;
+    min-width: 0;
   }
 }
 
@@ -101,11 +169,8 @@
     height: 150px;
   }
 
-  section:has(> form > aside.sticky.top-24) > form > aside {
-    padding: 14px;
-  }
-
-  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section {
+  section:has(> form > aside.sticky.top-24) > form > div.space-y-8 > section,
+  section:has(> form > aside.sticky.top-24) > form > aside.sticky.top-24 {
     padding: 14px;
   }
 }

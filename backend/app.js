@@ -23,7 +23,7 @@ app.set("trust proxy", 1);
 
 // Normalize configured frontend origins. CLIENT_URL may be a comma-separated
 // list, and browser Origin headers never contain a trailing slash.
-const allowedOrigins = (process.env.CLIENT_URL || "https://jatasayurveda.com,https://www.jatasayurveda.com")
+const allowedOrigins = (process.env.CLIENT_URL || "https://www.jatasayurveda.com")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);

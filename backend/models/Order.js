@@ -53,21 +53,13 @@ const orderSchema = new mongoose.Schema(
       enum: ["created", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"],
       default: "created",
     },
-    // Deprecated: kept only so existing pre-migration orders keep their
-    // values. New orders are written through the generic gateway* fields
-    // below via the payment gateway abstraction (services/payments).
-    razorpayOrderId: { type: String, unique: true, sparse: true },
-    razorpayPaymentId: { type: String, unique: true, sparse: true },
-    razorpaySignature: { type: String },
-    // Generic fields populated by whichever gateway adapter handled this order.
-    paymentMethod: { type: String, enum: ["razorpay", "cod", "icici"], default: "razorpay" },
+    paymentMethod: { type: String, enum: ["cod", "icici"], default: "icici" },
     gatewayOrderId: { type: String, unique: true, sparse: true },
     gatewayPaymentId: { type: String, unique: true, sparse: true },
     gatewaySignature: { type: String },
     gatewayRedirectUrl: { type: String },
     gatewayTranCtx: { type: String },
     gatewayRequestHash: { type: String },
-    // Optional: set when the buyer was signed in to a customer account at checkout. Guests leave this null.
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
     paymentStatus: { type: String, enum: ["pending", "paid", "collected"], default: "pending" },
     paidAt: { type: Date },

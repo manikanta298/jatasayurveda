@@ -28,7 +28,14 @@ function getRedirectBridgeUrl() {
     return "";
   }
 }
+function isMockMode() {
+  // Explicit opt-in only, and hard-blocked in production regardless of the
+  // env var — this must never be able to simulate a real payment as
+  // successful on the live site.
+  return process.env.ICICI_MOCK_MODE === "true" && getEnvironment() !== "production";
+}
 function isEnabled() {
+  if (isMockMode()) return true;
   return Boolean(process.env.ICICI_MERCHANT_ID && process.env.ICICI_AGGREGATOR_ID && process.env.ICICI_SECRET_KEY && process.env.ICICI_RETURN_URL && getRedirectBridgeUrl());
 }
 function assertConfigured() {
@@ -114,6 +121,7 @@ function getDiagnostics() {
   return {
     gateway: "icici",
     environment,
+    mockMode: isMockMode(),
     configured: Object.values(fields).every(Boolean),
     fields,
     merchantId: process.env.ICICI_MERCHANT_ID || null,
@@ -136,6 +144,20 @@ module.exports = {
   formatTxnDate,
   getDiagnostics,
   async createOrder({ order }) {
+    if (isMockMode()) {
+      console.warn(`[icici] MOCK MODE — simulating a successful "Initiate Sale" response for order ${order.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification test.`);
+      validateCustomerFields(order);
+      const merchantTxnNo = makeMerchantTxnNo(order.orderNumber);
+      order.gatewayRedirectUrl = "about:blank#icici-mock";
+      order.gatewayTranCtx = "mock-tran-ctx";
+      order.gatewayRequestHash = "mock-request-hash";
+      return {
+        requiresClientAction: true,
+        gatewayOrderId: merchantTxnNo,
+        clientConfig: { mock: true, merchantId: "MOCK", requestHash: "mock-bridge-hash", redirectUrl: getRedirectBridgeUrl() || "/checkout", amount: order.totalPaise, currency: order.currency },
+        initialStatus: "created",
+      };
+    }
     assertConfigured();
     validateCustomerFields(order);
     const merchantTxnNo = makeMerchantTxnNo(order.orderNumber);
@@ -184,6 +206,16 @@ module.exports = {
     return response;
   },
   async verifyPayment({ order, payload }) {
+    if (isMockMode()) {
+      console.warn(`[icici] MOCK MODE — simulating a successful payment verification for order ${order?.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification test.`);
+      return {
+        gatewayPaymentId: `MOCK-${order?.gatewayOrderId || "unknown"}`,
+        gatewaySignature: "mock-signature",
+        paid: true,
+        finalStatus: "paid",
+        response: { mock: true },
+      };
+    }
     assertConfigured();
     if (!order || !payload) throw new ApiError(400, "Invalid ICICI payment response");
     if (String(payload.merchantTxnNo) !== String(order.gatewayOrderId)) throw new ApiError(400, "ICICI payment does not match this order");

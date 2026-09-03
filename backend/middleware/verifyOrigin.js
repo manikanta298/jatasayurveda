@@ -1,10 +1,12 @@
 const ApiError = require("../utils/ApiError");
 
 // Keep CSRF origin validation aligned with app.js. The production JATA
-// origins are always trusted; CLIENT_URL can add staging/development origins.
+// origins and the current Hostinger frontend are always trusted; CLIENT_URL
+// can add staging/development origins.
 const defaultAllowedOrigins = [
   "https://jatasayurveda.com",
   "https://www.jatasayurveda.com",
+  "https://darkcyan-bee-958045.hostingersite.com",
 ];
 const configuredOrigins = (process.env.CLIENT_URL || "")
   .split(",")
@@ -15,9 +17,6 @@ const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigi
     try {
       return new URL(origin).origin;
     } catch {
-      // A malformed CLIENT_URL entry (missing scheme, stray characters, etc.)
-      // must not crash the whole server at boot — that would take down every
-      // route, not just CORS, and show up as a 502 with no clear cause.
       console.warn(`[verifyOrigin] Ignoring invalid origin in CLIENT_URL: "${origin}"`);
       return null;
     }

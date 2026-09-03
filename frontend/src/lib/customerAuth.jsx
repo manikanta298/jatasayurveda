@@ -9,6 +9,7 @@ import {
   resetCustomerPassword,
   updateCustomerProfile,
 } from "./queries";
+import { setCustomerAuthToken, clearCustomerAuthToken } from "./api";
 
 const Ctx = createContext({
   customer: null,
@@ -26,12 +27,13 @@ export function CustomerAuthProvider({ children }) {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On first load, silently check if there's already a valid session cookie
-  // (e.g. the customer signed in on a previous visit). A 401 here just means
-  // "not signed in" — not an error worth surfacing.
+  // On first load, use the persistent httpOnly cookie. If it is available,
+  // the frontend does not need to hold a token in JavaScript memory.
   useEffect(() => {
     getCurrentCustomer()
-      .then(setCustomer)
+      .then((current) => {
+        setCustomer(current);
+      })
       .catch(() => setCustomer(null))
       .finally(() => setLoading(false));
   }, []);
@@ -42,12 +44,14 @@ export function CustomerAuthProvider({ children }) {
 
   const register = useCallback(async ({ name, email, password, otp }) => {
     const result = await registerCustomer({ name, email, password, otp });
+    setCustomerAuthToken(result.token);
     setCustomer(result.customer);
     return result.customer;
   }, []);
 
   const login = useCallback(async (email, password, rememberMe) => {
     const result = await loginCustomer({ email, password, rememberMe });
+    setCustomerAuthToken(result.token);
     setCustomer(result.customer);
     return result.customer;
   }, []);
@@ -60,12 +64,14 @@ export function CustomerAuthProvider({ children }) {
 
   const loginWithGoogle = useCallback(async (credential) => {
     const result = await googleLoginCustomer({ credential });
+    setCustomerAuthToken(result.token);
     setCustomer(result.customer);
     return result.customer;
   }, []);
 
   const logout = useCallback(async () => {
     await logoutCustomer().catch(() => {});
+    clearCustomerAuthToken();
     setCustomer(null);
   }, []);
 

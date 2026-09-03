@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protect, requireRole } = require("../middleware/auth");
-const { protectCustomer, identifyCustomer } = require("../middleware/customerAuth");
+const { identifyCustomer } = require("../middleware/customerAuth");
 const validate = require("../middleware/validate");
 const { createOrder, verifyPayment } = require("../validators/schemas");
 const controller = require("../controllers/order.controller");
@@ -12,7 +12,12 @@ const adminGuard = [protect, requireRole("admin", "order_manager")];
 const checkoutLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 
 router.get("/payment-methods", controller.paymentMethods);
-router.post("/", checkoutLimiter, protectCustomer, validate(createOrder), controller.createOrder);
+// Checkout can be completed even when the browser cannot persist a
+// cross-origin customer cookie. identifyCustomer attaches the customer when
+// a valid cookie/Bearer token is present, while the order controller already
+// supports `customer: null` for guest orders. This prevents a deployment-level
+// cookie/CORS issue from blocking checkout entirely.
+router.post("/", checkoutLimiter, identifyCustomer, validate(createOrder), controller.createOrder);
 router.post("/verify", checkoutLimiter, validate(verifyPayment), controller.verifyPayment);
 router.get("/my", protectCustomer, controller.listMyOrders);
 

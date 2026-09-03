@@ -14,12 +14,12 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// Keep the production frontend explicitly trusted even when a stale or
-// incorrect CLIENT_URL is present in the hosting environment. CLIENT_URL
-// can still add additional trusted origins as a comma-separated list.
+// Keep all known production/staging frontend origins trusted. CLIENT_URL can
+// still add additional trusted origins as a comma-separated list.
 const defaultAllowedOrigins = [
   "https://jatasayurveda.com",
   "https://www.jatasayurveda.com",
+  "https://darkcyan-bee-958045.hostingersite.com",
 ];
 const configuredOrigins = (process.env.CLIENT_URL || "")
   .split(",")

@@ -9,6 +9,7 @@ import { CartProvider } from "./lib/cart";
 import { CustomerAuthProvider } from "./lib/customerAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import AppRouter from "./router";
+import { installPasswordGuard } from "./lib/passwordGuard";
 import "./styles.css";
 import "./mobile-cart-checkout.css";
 
@@ -32,6 +33,8 @@ createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+installPasswordGuard();
 
 // Note: the app:ready signal that hides the boot loader (see index.html) is
 // no longer dispatched here. With routes now lazy-loaded (router.jsx), this

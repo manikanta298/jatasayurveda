@@ -22,24 +22,50 @@ function signCustomerToken(customerId, rememberMe, tokenVersion = 0) {
   });
 }
 
-function isSecureContext(req) {
-  return req.secure || process.env.NODE_ENV === "production";
+function requestProtocol(req) {
+  const forwarded = req.headers["x-forwarded-proto"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim().toLowerCase();
+  }
+  return String(req.protocol || "").toLowerCase();
 }
 
-function setCustomerAuthCookie(res, token, req, rememberMe) {
+function isSecureContext(req) {
+  // Hostinger and other reverse proxies can terminate TLS before Node sees
+  // the request. Prefer the trusted forwarded protocol when available so an
+  // HTTPS production request never gets a non-Secure auth cookie just because
+  // NODE_ENV or req.secure was not populated as expected.
+  return Boolean(req.secure || requestProtocol(req) === "https" || process.env.NODE_ENV === "production");
+}
+
+function cookieOptions(req, rememberMe) {
   const secure = isSecureContext(req);
-  res.cookie(COOKIE_NAME, token, {
+  const options = {
     httpOnly: true,
     secure,
+    // The frontend and API may be on different origins in production, so use
+    // SameSite=None whenever the cookie is Secure. Axios sends credentials.
     sameSite: secure ? "none" : "lax",
     maxAge: rememberMe ? LONG_MAX_AGE : SHORT_MAX_AGE,
     path: "/",
-  });
+  };
+
+  // Optional for deployments that intentionally serve the frontend and API
+  // from sibling subdomains of the same parent domain (e.g. .jatasayurveda.com).
+  // Leave unset by default so unrelated hosts can never receive the session.
+  if (process.env.CUSTOMER_COOKIE_DOMAIN) {
+    options.domain = process.env.CUSTOMER_COOKIE_DOMAIN.trim();
+  }
+
+  return options;
+}
+
+function setCustomerAuthCookie(res, token, req, rememberMe) {
+  res.cookie(COOKIE_NAME, token, cookieOptions(req, rememberMe));
 }
 
 function clearCustomerAuthCookie(res, req) {
-  const secure = isSecureContext(req);
-  res.clearCookie(COOKIE_NAME, { secure, sameSite: secure ? "none" : "lax", path: "/" });
+  res.clearCookie(COOKIE_NAME, cookieOptions(req, false));
 }
 
 module.exports = { COOKIE_NAME, signCustomerToken, setCustomerAuthCookie, clearCustomerAuthCookie };

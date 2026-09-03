@@ -64,7 +64,6 @@ const sendOtp = asyncHandler(async (req, res) => {
     throw new ApiError(409, "An account with this email already exists. Try logging in instead.");
   }
   if (purpose === "reset" && !existing) {
-    // Don't reveal whether the email has an account — respond the same way either way.
     return sendSuccess(res, 200, { sent: true });
   }
 
@@ -75,7 +74,6 @@ const sendOtp = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, { sent: true });
 });
 
-// POST /api/v1/customers/auth/register  { name, email, password, otp }
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, otp } = req.body;
   if (!name || !email || !password || !otp) {
@@ -84,7 +82,6 @@ const register = asyncHandler(async (req, res) => {
   if (String(password).length < 8) throw new ApiError(400, "Password must be at least 8 characters");
 
   const normalizedEmail = String(email).toLowerCase().trim();
-
   const otpRecord = await OtpCode.findOne({ email: normalizedEmail, purpose: "register", consumedAt: null });
   if (!otpRecord) throw new ApiError(400, "No pending verification code for this email. Please request a new one.");
   if (otpRecord.attempts >= 5) throw new ApiError(429, "Too many incorrect attempts. Please request a new code.");
@@ -121,20 +118,14 @@ const register = asyncHandler(async (req, res) => {
 
   const token = signCustomerToken(customer._id, true, customer.tokenVersion);
   setCustomerAuthCookie(res, token, req, true);
-
-  return sendSuccess(res, 201, { customer: publicCustomer(customer) });
+  return sendSuccess(res, 201, { customer: publicCustomer(customer), token });
 });
 
-// POST /api/v1/customers/auth/login  { email, password, rememberMe }
 const login = asyncHandler(async (req, res) => {
   const { email, password, rememberMe } = req.body;
   if (!email || !password) throw new ApiError(400, "Email and password are required");
 
   const normalizedEmail = String(email).toLowerCase().trim();
-  // Same error message for "no account", "wrong password", and "not
-  // verified" so the endpoint can't be used to enumerate accounts — except
-  // unverified accounts get a distinct, actionable message since that's not
-  // sensitive information and the customer needs to know what to do next.
   const customer = await Customer.findOne({ email: normalizedEmail }).select("+passwordHash");
   if (!customer || !customer.isActive || !(await customer.comparePassword(password))) {
     throw new ApiError(401, "Invalid email or password");
@@ -149,14 +140,9 @@ const login = asyncHandler(async (req, res) => {
 
   const token = signCustomerToken(customer._id, Boolean(rememberMe), customer.tokenVersion);
   setCustomerAuthCookie(res, token, req, Boolean(rememberMe));
-
-  return sendSuccess(res, 200, { customer: publicCustomer(customer) });
+  return sendSuccess(res, 200, { customer: publicCustomer(customer), token });
 });
 
-// POST /api/v1/customers/auth/reset-password  { email, otp, newPassword }
-// Requires an OTP sent with purpose "reset" (POST /otp/send). Unlike
-// register, this never creates an account — only resets the password of an
-// existing one, and only after the code is verified.
 const resetPassword = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
   if (!email || !otp || !newPassword) {
@@ -165,7 +151,6 @@ const resetPassword = asyncHandler(async (req, res) => {
   if (String(newPassword).length < 8) throw new ApiError(400, "Password must be at least 8 characters");
 
   const normalizedEmail = String(email).toLowerCase().trim();
-
   const otpRecord = await OtpCode.findOne({ email: normalizedEmail, purpose: "reset", consumedAt: null });
   if (!otpRecord) throw new ApiError(400, "No pending reset code for this email. Please request a new one.");
   if (otpRecord.attempts >= 5) throw new ApiError(429, "Too many incorrect attempts. Please request a new code.");
@@ -180,31 +165,17 @@ const resetPassword = asyncHandler(async (req, res) => {
   await otpRecord.save();
 
   const customer = await Customer.findOne({ email: normalizedEmail });
-  if (!customer || !customer.isActive) {
-    // The OTP step already avoided confirming whether this email has an
-    // account, so keep the same non-committal response here too.
-    throw new ApiError(400, "Could not reset the password for this email.");
-  }
+  if (!customer || !customer.isActive) throw new ApiError(400, "Could not reset the password for this email.");
 
   customer.passwordHash = await Customer.hashPassword(newPassword);
-  // A password reset via a verified inbox code is itself proof of ownership.
   customer.emailVerified = true;
-  // Instantly invalidates every previously issued token for this customer —
-  // including ones on other devices that are still within their expiry
-  // window — since protectCustomer compares this against each token's `tv`
-  // claim. A reset usually means "I think someone else might have access,"
-  // so this is the actual security-relevant part of a password reset, not
-  // just changing the password hash.
   customer.tokenVersion = (customer.tokenVersion || 0) + 1;
   await customer.save();
 
   clearCustomerAuthCookie(res, req);
-
   return sendSuccess(res, 200, { reset: true });
 });
 
-// POST /api/v1/customers/auth/google  { credential }
-// `credential` is the ID token returned by Google Identity Services on the frontend.
 const googleLogin = asyncHandler(async (req, res) => {
   if (!googleClient) {
     throw new ApiError(503, "Google sign-in is not configured. Set GOOGLE_CLIENT_ID on the backend.");
@@ -241,25 +212,20 @@ const googleLogin = asyncHandler(async (req, res) => {
   customer.lastLoginAt = new Date();
   await customer.save();
 
-  // Google sign-in stays signed in (like most sites do), so this always uses the long-lived cookie.
   const token = signCustomerToken(customer._id, true, customer.tokenVersion);
   setCustomerAuthCookie(res, token, req, true);
-
-  return sendSuccess(res, 200, { customer: publicCustomer(customer) });
+  return sendSuccess(res, 200, { customer: publicCustomer(customer), token });
 });
 
-// POST /api/v1/customers/auth/logout
 const logout = asyncHandler(async (req, res) => {
   clearCustomerAuthCookie(res, req);
   return sendSuccess(res, 200, { loggedOut: true });
 });
 
-// GET /api/v1/customers/auth/me
 const me = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, publicCustomer(req.customer));
 });
 
-// PATCH /api/v1/customers/auth/profile  { name, address, addresses, location }
 const updateProfile = asyncHandler(async (req, res) => {
   const { name, address, addresses, location } = req.body;
   const customer = req.customer;

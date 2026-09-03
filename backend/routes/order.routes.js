@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protect, requireRole } = require("../middleware/auth");
-const { identifyCustomer } = require("../middleware/customerAuth");
+const { protectCustomer, identifyCustomer } = require("../middleware/customerAuth");
 const validate = require("../middleware/validate");
 const { createOrder, verifyPayment } = require("../validators/schemas");
 const controller = require("../controllers/order.controller");

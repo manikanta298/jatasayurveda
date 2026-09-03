@@ -15,9 +15,32 @@ function normalizeApiUrl(value) {
   return `${url}/api/v1`;
 }
 
+// Primary authentication remains the httpOnly customer cookie. This short-lived
+// in-memory fallback is only used for requests made in the same page session
+// immediately after login/register if a reverse proxy/browser refuses the cookie.
+let customerAuthToken = "";
+
+export function setCustomerAuthToken(token) {
+  customerAuthToken = typeof token === "string" ? token : "";
+}
+
+export function clearCustomerAuthToken() {
+  customerAuthToken = "";
+}
+
 export const api = axios.create({
   baseURL: normalizeApiUrl(configuredApiUrl),
-  withCredentials: true, // sends the httpOnly JWT cookie set by /auth/login
+  withCredentials: true, // sends the httpOnly JWT cookie set by customer auth
+});
+
+api.interceptors.request.use((config) => {
+  if (customerAuthToken) {
+    config.headers = config.headers || {};
+    if (!config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${customerAuthToken}`;
+    }
+  }
+  return config;
 });
 
 // Unwraps our backend's { success, data, meta } envelope and normalizes errors

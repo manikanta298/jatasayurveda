@@ -82,6 +82,7 @@ function safeGatewayResponse(data) {
   return Object.fromEntries(allowedKeys.filter((key) => data[key] !== undefined && data[key] !== null).map((key) => [key, data[key]]));
 }
 async function postJson(url, body, operation = "ICICI API request") {
+  console.info("[icici] gateway request", { operation, url, body });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   let response;

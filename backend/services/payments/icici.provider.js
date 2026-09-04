@@ -104,6 +104,14 @@ async function postJson(url, body, operation = "ICICI API request") {
 }
 function isSuccessCode(code) { return ["0", "00", "000", "0000", "R1000", "P1000"].includes(String(code)); }
 function isSuccessfulTransaction(status, responseCode) { return String(status).toUpperCase() === "SUC" && String(responseCode) === "0000"; }
+function normalizeIndianMobile(phone) {
+  const digitsOnly = String(phone || "").replace(/\D/g, "");
+  // Strip a leading "91" country code if it leaves exactly 10 digits behind
+  // (e.g. "919949258840" -> "9949258840"). ICICI's Initiate Sale API expects
+  // a plain 10-digit mobile number, not one prefixed with "+91"/"91".
+  if (digitsOnly.length === 12 && digitsOnly.startsWith("91")) return digitsOnly.slice(2);
+  return digitsOnly.slice(-10);
+}
 function validateCustomerFields(order) {
   if (String(order.customerEmail || "").length > 48) throw new ApiError(400, "Customer email is too long for ICICI Bank payment");
   if (String(order.customerPhone || "").length > 13) throw new ApiError(400, "Customer mobile number is too long for ICICI Bank payment");
@@ -167,7 +175,7 @@ module.exports = {
       amount: (order.totalPaise / 100).toFixed(2),
       currencyCode: "356",
       customerEmailID: order.customerEmail,
-      customerMobileNo: order.customerPhone,
+      customerMobileNo: normalizeIndianMobile(order.customerPhone),
       customerName: order.customerName,
       merchantId: process.env.ICICI_MERCHANT_ID,
       merchantTxnNo,
@@ -184,8 +192,8 @@ module.exports = {
     if (Object.keys(udfFields).length) request.udfFields = udfFields;
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getSaleUrl(), request, "Initiate Sale");
-    if (String(response.responseCode) !== "R1000") throw new ApiError(502, response.respDescription || "ICICI Bank could not initiate the payment", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
-    if (!response.redirectURI || !response.tranCtx) throw new ApiError(502, "ICICI Bank returned an incomplete payment redirect response", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
+    if (String(response.responseCode) !== "R1000") throw new ApiError(400, response.respDescription || `ICICI Bank could not initiate the payment (code: ${response.responseCode})`, { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
+    if (!response.redirectURI || !response.tranCtx) throw new ApiError(400, "ICICI Bank returned an incomplete payment redirect response", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
     order.gatewayRedirectUrl = response.redirectURI;
     order.gatewayTranCtx = response.tranCtx;
     order.gatewayRequestHash = request.secureHash;
@@ -203,7 +211,7 @@ module.exports = {
     const request = { aggregatorID: process.env.ICICI_AGGREGATOR_ID, merchantId: process.env.ICICI_MERCHANT_ID, merchantTxnNo: String(originalTxnNo), originalTxnNo: String(originalTxnNo), transactionType: "STATUS" };
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getCommandUrl(), request, "STATUS");
-    if (!verifySecureHash(response)) throw new ApiError(502, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", icici: safeGatewayResponse(response) });
+    if (!verifySecureHash(response)) throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", icici: safeGatewayResponse(response) });
     return response;
   },
   async verifyPayment({ order, payload }) {
@@ -224,8 +232,8 @@ module.exports = {
     if (payload.aggregatorID && String(payload.aggregatorID) !== String(process.env.ICICI_AGGREGATOR_ID)) throw new ApiError(400, "ICICI payment aggregator mismatch");
     if (!verifySecureHash(payload)) throw new ApiError(400, "ICICI payment response signature verification failed");
     const status = await this.checkStatus({ originalTxnNo: order.gatewayOrderId });
-    if (status.merchantId && String(status.merchantId) !== String(process.env.ICICI_MERCHANT_ID)) throw new ApiError(502, "ICICI STATUS response merchant mismatch");
-    if (status.aggregatorID && String(status.aggregatorID) !== String(process.env.ICICI_AGGREGATOR_ID)) throw new ApiError(502, "ICICI STATUS response aggregator mismatch");
+    if (status.merchantId && String(status.merchantId) !== String(process.env.ICICI_MERCHANT_ID)) throw new ApiError(400, "ICICI STATUS response merchant mismatch");
+    if (status.aggregatorID && String(status.aggregatorID) !== String(process.env.ICICI_AGGREGATOR_ID)) throw new ApiError(400, "ICICI STATUS response aggregator mismatch");
     if (order.totalPaise != null && status.amount != null && Number(status.amount).toFixed(2) !== (Number(order.totalPaise) / 100).toFixed(2)) throw new ApiError(409, "ICICI payment amount does not match this order");
     const paid = isSuccessfulTransaction(status.txnStatus, status.txnResponseCode);
     const finalStatus = paid ? "paid" : String(status.txnStatus).toUpperCase() === "REJ" ? "cancelled" : "created";

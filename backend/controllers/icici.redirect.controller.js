@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/ApiError");
 const Order = require("../models/Order");
+const iciciProvider = require("../services/payments/icici.provider");
 
 function matchesHash(expected, received) {
   if (!expected || !received || !/^[0-9a-f]+$/i.test(String(received))) return false;
@@ -22,6 +23,34 @@ const iciciRedirect = asyncHandler(async (req, res) => {
   const order = await Order.findOne({ orderNumber, paymentMethod: "icici" });
   if (!order || !order.gatewayRedirectUrl || !order.gatewayTranCtx) {
     throw new ApiError(404, "ICICI payment session not found");
+  }
+
+  if (iciciProvider.isMockMode()) {
+    // No real signature to verify — the "requestHash" here is just the fixed
+    // placeholder set by the mock createOrder branch. Serve a visible mock
+    // bank page instead of redirecting to a blank URL, so the checkout flow
+    // can be exercised end-to-end for local testing.
+    console.warn(`[icici] MOCK MODE — serving simulated payment page for order ${order.orderNumber}.`);
+    return res.send(`<!DOCTYPE html>
+<html><head><title>Mock ICICI Payment</title><style>
+body{font-family:Arial,sans-serif;max-width:420px;margin:80px auto;text-align:center;color:#1f2937}
+.card{border:1px solid #e5e7eb;border-radius:12px;padding:32px}
+.badge{display:inline-block;background:#fef3c7;color:#92400e;padding:4px 12px;border-radius:999px;font-size:12px;margin-bottom:16px}
+button{margin-top:24px;padding:12px 24px;border:none;border-radius:8px;background:#1f5c43;color:white;font-size:15px;cursor:pointer}
+button:hover{background:#16442f}
+</style></head><body>
+<div class="card">
+<div class="badge">MOCK MODE — not a real ICICI page</div>
+<h2>Simulated ICICI Payment</h2>
+<p>Order: ${order.orderNumber}</p>
+<p>Amount: ₹${(order.totalPaise / 100).toFixed(2)}</p>
+<form method="POST" action="/api/v1/orders/icici/return">
+<input type="hidden" name="merchantTxnNo" value="${order.gatewayOrderId}" />
+<input type="hidden" name="mock" value="true" />
+<button type="submit">Simulate Successful Payment</button>
+</form>
+</div>
+</body></html>`);
   }
 
   const expected = crypto

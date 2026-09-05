@@ -146,6 +146,7 @@ module.exports = {
   key: "icici",
   label: "ICICI Bank Payment Gateway",
   isEnabled,
+  isMockMode,
   generateSecureHash,
   verifySecureHash,
   isSuccessCode,
@@ -179,17 +180,19 @@ module.exports = {
       customerName: order.customerName,
       merchantId: process.env.ICICI_MERCHANT_ID,
       merchantTxnNo,
-      payType: 0,
+      payType: "0",
       returnURL: process.env.ICICI_RETURN_URL,
       transactionType: "SALE",
       txnDate: formatTxnDate(),
     };
-    if (process.env.ICICI_PAYMENT_MODE) request.paymentMode = process.env.ICICI_PAYMENT_MODE;
-    if (process.env.ICICI_TXN_CHANNEL) request.txnChannel = process.env.ICICI_TXN_CHANNEL;
-    const udfFields = {};
-    if (process.env.ICICI_UDF23) udfFields.udf23 = process.env.ICICI_UDF23;
-    if (process.env.ICICI_UDF24) udfFields.udf24 = process.env.ICICI_UDF24;
-    if (Object.keys(udfFields).length) request.udfFields = udfFields;
+    // Only addlParam1/addlParam2 are documented as valid optional fields for
+    // Initiate Sale — anything else (txnChannel, paymentMode, a nested
+    // udfFields object) is not part of ICICI's spec and, worse, silently
+    // changes the secureHash computation since generateSecureHash hashes
+    // whatever keys are present on this object. A field ICICI's own hash
+    // calculation doesn't know about is a guaranteed hash mismatch (P1006).
+    if (process.env.ICICI_ADDL_PARAM_1) request.addlParam1 = process.env.ICICI_ADDL_PARAM_1;
+    if (process.env.ICICI_ADDL_PARAM_2) request.addlParam2 = process.env.ICICI_ADDL_PARAM_2;
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getSaleUrl(), request, "Initiate Sale");
     if (String(response.responseCode) !== "R1000") throw new ApiError(400, response.respDescription || `ICICI Bank could not initiate the payment (code: ${response.responseCode})`, { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });

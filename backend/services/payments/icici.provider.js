@@ -32,7 +32,11 @@ function isMockMode() {
   // Explicit opt-in only, and hard-blocked in production regardless of the
   // env var — this must never be able to simulate a real payment as
   // successful on the live site.
-  return process.env.ICICI_MOCK_MODE === "true" && getEnvironment() !== "production";
+  return (
+    process.env.ICICI_MOCK_MODE === "true" &&
+    process.env.ICICI_ALLOW_MOCK_MODE === "true" &&
+    getEnvironment() !== "production"
+  );
 }
 function isEnabled() {
   if (isMockMode()) return true;

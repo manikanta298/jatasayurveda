@@ -34,6 +34,21 @@ app.use(
       // Non-browser/server-to-server requests (including ICICI callbacks)
       // have no Origin header and must not be rejected by CORS.
       if (!origin) return callback(null, true);
+
+      // ICICI browser/server callbacks may arrive with an opaque "null"
+      // origin (for example from a sandboxed/payment document). These
+      // endpoints do not rely on browser cookies for authorization: the
+      // return path verifies the ICICI response signature and performs a
+      // server-side STATUS check, while advice performs the same signature
+      // verification. Keep the exception narrowly scoped to those routes
+      // instead of trusting "null" for the whole API.
+      if (
+        origin === "null" &&
+        /^\/api\/v1\/orders\/icici\/(return|advice)$/.test(req.path)
+      ) {
+        return callback(null, true);
+      }
+
       if (allowedOrigins.includes(origin)) return callback(null, true);
       console.warn(`[cors] Rejected origin: ${origin}`);
       return callback(new Error("Not allowed by CORS"));
@@ -63,6 +78,10 @@ app.use(
   "/api/v1/contact",
   rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false })
 );
+
+// Browsers request this automatically. A missing favicon is not an API error
+// and should not pollute production logs.
+app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 app.get("/", (req, res) => {
   res.status(200).json({

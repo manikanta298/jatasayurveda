@@ -73,12 +73,12 @@ function makeMerchantTxnNo(orderNumber) {
   return value;
 }
 function formatTxnDate(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(date).reduce((result, part) => { result[part.type] = part.value; return result; }, {});
-  return `${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}${parts.second}`;
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  return `${parts.find(p => p.type === "year").value}${parts.find(p => p.type === "month").value}${parts.find(p => p.type === "day").value}${parts.find(p => p.type === "hour").value}${parts.find(p => p.type === "minute").value}${parts.find(p => p.type === "second").value}`;
 }
 function safeGatewayResponse(data) {
   if (!data || typeof data !== "object") return { rawType: typeof data };
-  const allowedKeys = ["responseCode", "respDescription", "txnStatus", "txnResponseCode", "txnRespDescription", "merchantId", "merchantTxnNo", "transactionType", "redirectURI", "showOTPCapturePage", "tranCtx"];
+  const allowedKeys = ["responseCode", "respDescription", "txnStatus", "txnResponseCode", "txnRespDescription", "merchantId", "merchantTxnNo", "transactionType", "redirectURI", "showOTPCapturePage", "tranCtx", "amount", "txnAuthID", "paymentMode", "aggregatorID", "TransmissionDateTime", "acqName", "paymentDateTime", "txnID", "paymentID"];
   return Object.fromEntries(allowedKeys.filter((key) => data[key] !== undefined && data[key] !== null).map((key) => [key, data[key]]));
 }
 async function postJson(url, body, operation = "ICICI API request") {
@@ -96,10 +96,10 @@ async function postJson(url, body, operation = "ICICI API request") {
   const text = await response.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch {
-    throw new ApiError(502, `ICICI Bank returned a non-JSON response (HTTP ${response.status})`, { gateway: "icici", environment: getEnvironment(), operation, httpStatus: response.status, bodyPreview: text.slice(0, 300) });
+    throw new ApiError(502, `ICICI Bank returned a non-JSON response (HTTP ${response.status})`, { gateway: "icici", environment: getEnvironment(), operation, httpStatus: response.status, body: text.slice(0, 256) });
   }
   console.info("[icici] gateway response", { operation, httpStatus: response.status, ...safeGatewayResponse(data) });
-  if (!response.ok) throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`, { gateway: "icici", environment: getEnvironment(), operation, httpStatus: response.status, icici: safeGatewayResponse(data) });
+  if (!response.ok) throw new ApiError(502, `ICICI Bank request failed (HTTP ${response.status})`, { gateway: "icici", environment: getEnvironment(), operation, httpStatus: response.status, iciciErrorCode: data?.responseCode });
   return data;
 }
 function isSuccessCode(code) { return ["0", "00", "000", "0000", "R1000", "P1000"].includes(String(code)); }
@@ -155,7 +155,7 @@ module.exports = {
   getDiagnostics,
   async createOrder({ order }) {
     if (isMockMode()) {
-      console.warn(`[icici] MOCK MODE — simulating a successful "Initiate Sale" response for order ${order.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification test.`);
+      console.warn(`[icici] MOCK MODE — simulating a successful "Initiate Sale" response for order ${order.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification.`);
       validateCustomerFields(order);
       const merchantTxnNo = makeMerchantTxnNo(order.orderNumber);
       order.gatewayRedirectUrl = "about:blank#icici-mock";
@@ -180,7 +180,7 @@ module.exports = {
       customerName: order.customerName,
       merchantId: process.env.ICICI_MERCHANT_ID,
       merchantTxnNo,
-      payType: "0",
+      payType: 0,
       returnURL: process.env.ICICI_RETURN_URL,
       transactionType: "SALE",
       txnDate: formatTxnDate(),
@@ -195,8 +195,8 @@ module.exports = {
     if (process.env.ICICI_ADDL_PARAM_2) request.addlParam2 = process.env.ICICI_ADDL_PARAM_2;
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getSaleUrl(), request, "Initiate Sale");
-    if (String(response.responseCode) !== "R1000") throw new ApiError(400, response.respDescription || `ICICI Bank could not initiate the payment (code: ${response.responseCode})`, { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
-    if (!response.redirectURI || !response.tranCtx) throw new ApiError(400, "ICICI Bank returned an incomplete payment redirect response", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", icici: safeGatewayResponse(response) });
+    if (String(response.responseCode) !== "R1000") throw new ApiError(400, response.respDescription || `ICICI Bank could not initiate the payment (code: ${response.responseCode})`, { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", iciciErrorCode: response.responseCode });
+    if (!response.redirectURI || !response.tranCtx) throw new ApiError(400, "ICICI Bank returned an incomplete payment redirect response", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", iciciErrorCode: response.responseCode });
     order.gatewayRedirectUrl = response.redirectURI;
     order.gatewayTranCtx = response.tranCtx;
     order.gatewayRequestHash = request.secureHash;
@@ -214,12 +214,12 @@ module.exports = {
     const request = { aggregatorID: process.env.ICICI_AGGREGATOR_ID, merchantId: process.env.ICICI_MERCHANT_ID, merchantTxnNo: String(originalTxnNo), originalTxnNo: String(originalTxnNo), transactionType: "STATUS" };
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getCommandUrl(), request, "STATUS");
-    if (!verifySecureHash(response)) throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", icici: safeGatewayResponse(response) });
+    if (!verifySecureHash(response)) throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", iciciErrorCode: response?.responseCode });
     return response;
   },
   async verifyPayment({ order, payload }) {
     if (isMockMode()) {
-      console.warn(`[icici] MOCK MODE — simulating a successful payment verification for order ${order?.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification test.`);
+      console.warn(`[icici] MOCK MODE — simulating a successful payment verification for order ${order?.orderNumber}. This is NOT a real ICICI transaction; do not use for the bank's certification.`);
       return {
         gatewayPaymentId: `MOCK-${order?.gatewayOrderId || "unknown"}`,
         gatewaySignature: "mock-signature",
@@ -237,7 +237,7 @@ module.exports = {
     const status = await this.checkStatus({ originalTxnNo: order.gatewayOrderId });
     if (status.merchantId && String(status.merchantId) !== String(process.env.ICICI_MERCHANT_ID)) throw new ApiError(400, "ICICI STATUS response merchant mismatch");
     if (status.aggregatorID && String(status.aggregatorID) !== String(process.env.ICICI_AGGREGATOR_ID)) throw new ApiError(400, "ICICI STATUS response aggregator mismatch");
-    if (order.totalPaise != null && status.amount != null && Number(status.amount).toFixed(2) !== (Number(order.totalPaise) / 100).toFixed(2)) throw new ApiError(409, "ICICI payment amount does not match this order");
+    if (order.totalPaise != null && status.amount != null && Number(status.amount).toFixed(2) !== (Number(order.totalPaise) / 100).toFixed(2)) throw new ApiError(409, "ICICI payment amount does not match order", { gateway: "icici", environment: getEnvironment(), operation: "Verify Payment", orderAmount: order.totalPaise, gatewayAmount: status.amount });
     const paid = isSuccessfulTransaction(status.txnStatus, status.txnResponseCode);
     const finalStatus = paid ? "paid" : String(status.txnStatus).toUpperCase() === "REJ" ? "cancelled" : "created";
     return { gatewayPaymentId: status.txnID || payload.txnID || payload.paymentID || null, gatewaySignature: payload.secureHash, paid, finalStatus, response: status };

@@ -32,14 +32,17 @@ export default function ServicesList() {
             >
               <div className="order-2 flex flex-col p-8 sm:order-1">
                 <h3 className="font-display text-2xl text-foreground">{s.name}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{s.description || ""}</p>
-                <p className="mt-6 line-clamp-3 text-sm leading-relaxed text-muted-foreground/80">{s.details || ""}</p>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground line-clamp-3">{s.description || ""}</p>
                 <span className="mt-auto inline-flex items-center gap-1 pt-6 text-sm font-medium text-primary">
                   Explore programme <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </span>
               </div>
               <div className="order-1 aspect-square overflow-hidden sm:order-2 sm:aspect-auto">
-                <img src={s.image} alt={s.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                {s.image ? (
+                  <img src={s.image} alt={s.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                ) : (
+                  <div aria-hidden="true" className="h-full w-full bg-muted" />
+                )}
               </div>
             </Link>
           ))}

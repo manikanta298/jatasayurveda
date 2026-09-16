@@ -45,11 +45,11 @@ export default function PlantDetail() {
       <Section>
         <div className="max-w-3xl">
           <h2 className="font-display text-3xl text-foreground sm:text-4xl">Details</h2>
-          {plant.details ? (
-            <div className="mt-4 text-base leading-relaxed text-muted-foreground" dangerouslySetInnerHTML={{ __html: plant.details }} />
+          {plant.description ? (
+            <div className="mt-4 whitespace-pre-line text-base leading-relaxed text-muted-foreground">{plant.description}</div>
           ) : (
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Detailed plant information was not included in the supplied WordPress export. The plant name, image reference, and original WordPress product URL have been preserved in the extracted data.
+              Detailed plant information was not included in the supplied WordPress export.
             </p>
           )}
         </div>

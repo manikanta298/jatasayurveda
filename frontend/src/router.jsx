@@ -4,10 +4,7 @@ import App from "./App";
 
 // Every route below is code-split via React.lazy — a first-time visitor to
 // the homepage no longer has to download and execute the entire admin
-// panel's code (editors, dashboard charts, user management, etc.) before
-// the page can even render. Vite/Rollup automatically gives each of these
-// its own chunk, fetched only when that route is actually visited. See
-// App.jsx for how this coordinates with the boot loader in index.html.
+// panel's code before the page can render.
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
@@ -16,6 +13,7 @@ const ProductsList = lazy(() => import("./pages/ProductsList"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const ServicesList = lazy(() => import("./pages/ServicesList"));
 const ServiceDetail = lazy(() => import("./pages/ServiceDetail"));
+const PlantDetail = lazy(() => import("./pages/PlantDetail"));
 const BlogList = lazy(() => import("./pages/BlogList"));
 const BlogDetail = lazy(() => import("./pages/BlogDetail"));
 const Research = lazy(() => import("./pages/Research"));
@@ -55,6 +53,7 @@ export default function AppRouter() {
         <Route path="products/:slug" element={<ProductDetail />} />
         <Route path="services" element={<ServicesList />} />
         <Route path="services/:slug" element={<ServiceDetail />} />
+        <Route path="plant/:id" element={<PlantDetail />} />
         <Route path="blog" element={<BlogList />} />
         <Route path="blog/:slug" element={<BlogDetail />} />
         <Route path="research" element={<Research />} />

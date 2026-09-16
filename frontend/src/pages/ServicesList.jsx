@@ -1,13 +1,10 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { Section, Eyebrow } from "@/components/site/Section";
-import { listServices } from "@/lib/queries";
-import { FALLBACK_SERVICES } from "@/lib/fallbackContent";
+import plants from "@/data/data.json";
 
 export default function ServicesList() {
-  const { data: services = [] } = useQuery({ queryKey: ["services"], queryFn: () => listServices() });
-  const featuredServices = services.length > 0 ? services : FALLBACK_SERVICES;
+  const featuredServices = plants;
 
   return (
     <>
@@ -29,20 +26,20 @@ export default function ServicesList() {
         <div className="grid gap-6 md:grid-cols-2">
           {featuredServices.map((s) => (
             <Link
-              key={s.slug}
-              to={`/services/${s.slug}`}
+              key={s.id}
+              to={`/plant/${s.id}`}
               className="group grid overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-soft)] transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-elegant)] sm:grid-cols-[1.2fr_1fr]"
             >
               <div className="order-2 flex flex-col p-8 sm:order-1">
                 <h3 className="font-display text-2xl text-foreground">{s.name}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{s.shortDescription}</p>
-                <p className="mt-6 line-clamp-3 text-sm leading-relaxed text-muted-foreground/80">{s.fullDescription}</p>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{s.description || ""}</p>
+                <p className="mt-6 line-clamp-3 text-sm leading-relaxed text-muted-foreground/80">{s.details || ""}</p>
                 <span className="mt-auto inline-flex items-center gap-1 pt-6 text-sm font-medium text-primary">
                   Explore programme <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </span>
               </div>
               <div className="order-1 aspect-square overflow-hidden sm:order-2 sm:aspect-auto">
-                <img src={s.bannerImageUrl} alt={s.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <img src={s.image} alt={s.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               </div>
             </Link>
           ))}

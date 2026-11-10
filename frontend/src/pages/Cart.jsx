@@ -4,9 +4,10 @@ import { Section, Eyebrow } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart";
 import { formatINRFromPaise } from "@/lib/format";
+import CouponBox from "@/components/site/CouponBox";
 
 export default function Cart() {
-  const { items, subtotalPaise, shippingPaise, totalPaise, updateQty, remove, count } = useCart();
+  const { items, subtotalPaise, discountPaise, totalPaise, updateQty, remove, count } = useCart();
 
   return (
     <Section className="pt-14 pb-24">
@@ -73,12 +74,14 @@ export default function Cart() {
                 <dt className="text-muted-foreground">Subtotal</dt>
                 <dd className="font-medium text-foreground">{formatINRFromPaise(subtotalPaise)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Shipping</dt>
-                <dd className="font-medium text-foreground">{shippingPaise === 0 ? "Free" : formatINRFromPaise(shippingPaise)}</dd>
-              </div>
-              {shippingPaise > 0 && <p className="text-xs text-muted-foreground">Free shipping on orders over ₹999.</p>}
+              {discountPaise > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Discount</dt>
+                  <dd className="font-medium text-emerald-700">-{formatINRFromPaise(discountPaise)}</dd>
+                </div>
+              )}
             </dl>
+            <CouponBox />
             <div className="border-t border-border pt-3 flex items-center justify-between">
               <span className="font-display text-lg text-foreground">Total</span>
               <span className="font-display text-2xl font-semibold text-primary">{formatINRFromPaise(totalPaise)}</span>

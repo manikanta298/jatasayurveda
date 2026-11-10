@@ -2,6 +2,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import CouponBox from "@/components/site/CouponBox";
 import { Loader2, Lock, ArrowRight, MapPin, Settings2 } from "lucide-react";
 import { Section, Eyebrow } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ const empty = {
 };
 
 export default function Checkout() {
-  const { items, subtotalPaise, shippingPaise, totalPaise, clear } = useCart();
+  const { items, subtotalPaise, discountPaise, coupon, totalPaise, clear } = useCart();
   const { customer, loading: authLoading } = useCustomerAuth();
   const navigate = useNavigate();
   const [values, setValues] = useState(empty);
@@ -90,7 +91,7 @@ export default function Checkout() {
       const order = await createOrder({
         customerName: parsed.data.customer_name, customerEmail: parsed.data.customer_email, customerPhone: parsed.data.customer_phone,
         shippingAddress: { line1: parsed.data.shipping_address_line1, line2: parsed.data.shipping_address_line2, city: parsed.data.shipping_city, state: parsed.data.shipping_state, pincode: parsed.data.shipping_pincode, country: parsed.data.shipping_country },
-        cartItems: items.map((l) => ({ productId: l.productId, quantity: l.qty })), notes: parsed.data.notes, paymentMethod,
+        cartItems: items.map((l) => ({ productId: l.productId, quantity: l.qty })), notes: parsed.data.notes, paymentMethod, couponCode: coupon?.code || undefined,
       });
 
       const finishCod = async () => {
@@ -133,7 +134,7 @@ export default function Checkout() {
           <Card title="Order notes (optional)"><Label htmlFor="notes" className="text-sm text-foreground">Delivery instructions</Label><Textarea id="notes" value={values.notes || ""} onChange={set("notes")} placeholder="e.g. Please call before delivery" className="mt-2 min-h-24 rounded-2xl border-border bg-background" /></Card>
           <Card title="Payment method">{methods.length === 0 ? <p className="text-sm text-muted-foreground">Loading payment options…</p> : <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-2">{methods.map((m) => <label key={m.key} htmlFor={`pm-${m.key}`} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"><RadioGroupItem value={m.key} id={`pm-${m.key}`} /><span className="text-foreground">{m.label}</span>{m.key === "icici" && <span className="ml-auto text-xs text-muted-foreground">Secure bank page</span>}</label>)}</RadioGroup>}</Card>
         </div>
-        <aside className="sticky top-24 space-y-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><h2 className="font-display text-2xl text-foreground">Order summary</h2><ul className="divide-y divide-border/60">{items.map((l) => <li key={l.productId} className="flex items-start gap-3 py-3"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted"><img src={l.image} alt={l.name} className="h-full w-full object-cover" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{l.name}</p><p className="text-xs text-muted-foreground">Qty {l.qty}</p></div><p className="text-sm font-medium text-foreground">{formatINRFromPaise(l.unitPricePaise * l.qty)}</p></li>)}</ul><dl className="space-y-2 border-t border-border pt-3 text-sm"><div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd>{formatINRFromPaise(subtotalPaise)}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Shipping</dt><dd>{shippingPaise === 0 ? "Free" : formatINRFromPaise(shippingPaise)}</dd></div></dl><div className="flex items-center justify-between border-t border-border pt-3"><span className="font-display text-lg text-foreground">Total</span><span className="font-display text-2xl font-semibold text-primary">{formatINRFromPaise(totalPaise)}</span></div><Button type="submit" size="lg" disabled={busy || !paymentMethod} className="w-full rounded-full bg-primary py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}{busy ? "Processing..." : "Place order"}{!busy && <ArrowRight className="ml-2 h-4 w-4" />}</Button><p className="text-xs text-muted-foreground">By placing the order you agree to our terms. Online payments are processed securely.</p></aside>
+        <aside className="sticky top-24 space-y-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><h2 className="font-display text-2xl text-foreground">Order summary</h2><ul className="divide-y divide-border/60">{items.map((l) => <li key={l.productId} className="flex items-start gap-3 py-3"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted"><img src={l.image} alt={l.name} className="h-full w-full object-cover" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{l.name}</p><p className="text-xs text-muted-foreground">Qty {l.qty}</p></div><p className="text-sm font-medium text-foreground">{formatINRFromPaise(l.unitPricePaise * l.qty)}</p></li>)}</ul><dl className="space-y-2 border-t border-border pt-3 text-sm"><div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd>{formatINRFromPaise(subtotalPaise)}</dd></div>{discountPaise > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Discount</dt><dd className="text-emerald-700">-{formatINRFromPaise(discountPaise)}</dd></div>}</dl><CouponBox /><div className="flex items-center justify-between border-t border-border pt-3"><span className="font-display text-lg text-foreground">Total</span><span className="font-display text-2xl font-semibold text-primary">{formatINRFromPaise(totalPaise)}</span></div><Button type="submit" size="lg" disabled={busy || !paymentMethod} className="w-full rounded-full bg-primary py-6 text-base text-primary-foreground shadow-[var(--shadow-elegant)] hover:bg-primary/90">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}{busy ? "Processing..." : "Place order"}{!busy && <ArrowRight className="ml-2 h-4 w-4" />}</Button><p className="text-xs text-muted-foreground">By placing the order you agree to our terms. Online payments are processed securely.</p></aside>
       </form>
     </Section>
   );

@@ -27,7 +27,8 @@ const configuredOrigins = (process.env.CLIENT_URL || "")
   .filter(Boolean);
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])];
 
-app.use(helmet());
+// ICICI validates the Referer/origin domain, so helmet's default "no-referrer" would trigger "DOMAIN VALIDATION FAIL".
+app.use(helmet({ referrerPolicy: { policy: "strict-origin-when-cross-origin" } }));
 app.use(
   cors({
     origin(origin, callback) {

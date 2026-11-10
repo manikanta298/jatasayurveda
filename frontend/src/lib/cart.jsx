@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useSettings } from "./settings";
+import { validateCoupon } from "./queries";
 
 const STORAGE_KEY = "jata:cart:v1";
 
@@ -12,8 +12,11 @@ const defaultCtx = {
   items: [],
   count: 0,
   subtotalPaise: 0,
-  shippingPaise: 0,
+  discountPaise: 0,
+  coupon: null,
   totalPaise: 0,
+  applyCoupon: async () => {},
+  removeCoupon: noop,
   add: noop,
   updateQty: noop,
   remove: noop,
@@ -25,7 +28,7 @@ const Ctx = createContext(defaultCtx);
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [hydrated, setHydrated] = useState(false);
-  const { commerce } = useSettings();
+  const [coupon, setCoupon] = useState(null); // { code, discountPaise } — display only; server re-validates
 
   useEffect(() => {
     try {
@@ -36,6 +39,8 @@ export function CartProvider({ children }) {
     }
     setHydrated(true);
   }, []);
+
+  useEffect(() => { setCoupon(null); }, [items]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -48,17 +53,21 @@ export function CartProvider({ children }) {
 
   const value = useMemo(() => {
     const subtotalPaise = items.reduce((s, i) => s + i.unitPricePaise * i.qty, 0);
-    const freeShippingOver = commerce?.free_shipping_over_paise ?? 99900;
-    const flatShipping = commerce?.flat_shipping_paise ?? 7900;
-    const shippingPaise = items.length === 0 || subtotalPaise >= freeShippingOver ? 0 : flatShipping;
     const count = items.reduce((s, i) => s + i.qty, 0);
 
     return {
       items,
       count,
       subtotalPaise,
-      shippingPaise,
-      totalPaise: subtotalPaise + shippingPaise,
+      coupon,
+      discountPaise: coupon ? Math.min(coupon.discountPaise, subtotalPaise) : 0,
+      totalPaise: subtotalPaise - (coupon ? Math.min(coupon.discountPaise, subtotalPaise) : 0),
+      applyCoupon: async (code) => {
+        const r = await validateCoupon(code, subtotalPaise);
+        setCoupon({ code: r.code, discountPaise: r.discountPaise });
+        return r;
+      },
+      removeCoupon: () => setCoupon(null),
       // product: the full product object from the API (needs _id, slug, name, featuredImageUrl, pricePaise, discountPricePaise)
       add: (product, qty = 1) =>
         setItems((prev) => {
@@ -86,9 +95,9 @@ export function CartProvider({ children }) {
             : prev.map((p) => (p.productId === productId ? { ...p, qty } : p))
         ),
       remove: (productId) => setItems((prev) => prev.filter((p) => p.productId !== productId)),
-      clear: () => setItems([]),
+      clear: () => { setItems([]); setCoupon(null); },
     };
-  }, [items, commerce]);
+  }, [items, coupon]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

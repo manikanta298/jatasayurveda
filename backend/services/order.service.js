@@ -42,37 +42,26 @@ async function priceOrder({ cartItems, couponCode }) {
     });
     subtotalPaise += unitPricePaise * cartItem.quantity;
   }
-
-  const commerceSettings = await SiteSetting.findOne({ key: "commerce" });
-  const freeShippingOver = commerceSettings?.value?.free_shipping_over_paise ?? null;
-  const configuredFlatShipping = commerceSettings?.value?.flat_shipping_paise ?? 0;
-
-  // Current policy: shipping is FREE. Future shipping charges remain
-  // configurable through commerce settings, but cannot accidentally become
-  // active merely because an old/stale database value exists. Set
-  // shipping_enabled=true when the business is ready to start charging.
-  const shippingEnabled = commerceSettings?.value?.shipping_enabled === true;
-  const flatShipping = Math.max(0, Number(configuredFlatShipping) || 0);
-  const freeShippingThreshold = freeShippingOver === null ? null : Math.max(0, Number(freeShippingOver) || 0);
-  const shippingPaise = !shippingEnabled
-    ? 0
-    : freeShippingThreshold !== null && subtotalPaise >= freeShippingThreshold
-      ? 0
-      : flatShipping;
+  // Shipping charges are disabled for now (always 0). Re-introduce here later if needed.
+  const shippingPaise = 0;
 
   let discountPaise = 0;
   let appliedCoupon = null;
   if (couponCode) {
     const coupon = await Coupon.findOne({ code: couponCode.trim().toUpperCase(), isActive: true });
-    if (coupon) {
-      discountPaise =
-        coupon.discountType === "percent"
-          ? Math.round((subtotalPaise * coupon.discountValue) / 100)
-          : coupon.discountValue;
-      if (coupon.maxDiscountPaise !== null) discountPaise = Math.min(discountPaise, coupon.maxDiscountPaise);
-      discountPaise = Math.min(discountPaise, subtotalPaise);
-      appliedCoupon = coupon;
-    }
+    if (!coupon) throw new ApiError(400, "Invalid or inactive coupon code");
+    const now = new Date();
+    if (coupon.validFrom && now < coupon.validFrom) throw new ApiError(400, "Coupon is not active yet");
+    if (coupon.validUntil && now > coupon.validUntil) throw new ApiError(400, "Coupon has expired");
+    if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) throw new ApiError(400, "Coupon usage limit reached");
+    if (subtotalPaise < coupon.minOrderPaise) throw new ApiError(400, "Minimum order amount not met for this coupon");
+    discountPaise =
+      coupon.discountType === "percent"
+        ? Math.round((subtotalPaise * coupon.discountValue) / 100)
+        : coupon.discountValue;
+    if (coupon.maxDiscountPaise !== null) discountPaise = Math.min(discountPaise, coupon.maxDiscountPaise);
+    discountPaise = Math.min(discountPaise, subtotalPaise);
+    appliedCoupon = coupon;
   }
 
   const totalPaise = subtotalPaise + shippingPaise - discountPaise;

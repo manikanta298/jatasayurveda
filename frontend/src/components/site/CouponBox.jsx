@@ -8,6 +8,7 @@ export default function CouponBox() {
   const { coupon, applyCoupon, removeCoupon, items } = useCart();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false); // collapsed by default — coupons are optional
 
   const apply = async () => {
     const c = code.trim();
@@ -33,6 +34,14 @@ export default function CouponBox() {
     );
   }
 
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="text-sm text-primary underline-offset-4 hover:underline">
+        Have a coupon code?
+      </button>
+    );
+  }
+
   return (
     <div className="flex gap-2">
       <input
@@ -42,6 +51,7 @@ export default function CouponBox() {
         placeholder="Coupon code"
         maxLength={30}
         autoComplete="off"
+        autoFocus
         className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm uppercase outline-none focus:ring-2 focus:ring-primary/40"
       />
       <button type="button" onClick={apply} disabled={busy || !code.trim()} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">

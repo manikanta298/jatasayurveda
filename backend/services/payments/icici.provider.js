@@ -66,6 +66,23 @@ function generateSecureHash(requestObj, secretKey) {
   }).join("");
   return crypto.createHmac("sha256", secretKey).update(hashText, "utf8").digest("hex");
 }
+// DIAGNOSTIC ONLY (never used to accept a payment): reports which alternative hash recipes would
+// reproduce ICICI's signature, so the exact recipe can be identified. Logs variant names, no secrets/hashes.
+function diagnoseHashVariants(response) {
+  const secret = getSecretKey();
+  const received = response?.secureHash;
+  const keys = Object.keys(response || {}).filter((k) => k !== "secureHash");
+  const val = (v, mode) => (v === null || v === undefined ? (mode === "nullText" ? String(v) : "") : typeof v === "object" ? JSON.stringify(v) : mode === "fixed2" && typeof v === "number" ? v.toFixed(2) : String(v));
+  const hmac = (list, mode) => crypto.createHmac("sha256", secret).update(list.map((k) => val(response[k], mode)).join(""), "utf8").digest("hex");
+  const ok = (h) => hashesMatch(h, received);
+  const matches = [];
+  if (ok(hmac([...keys].sort(), "default"))) matches.push("default");
+  if (ok(hmac([...keys].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())), "default"))) matches.push("caseInsensitiveSort");
+  if (ok(hmac([...keys].sort(), "fixed2"))) matches.push("numbersFixed2");
+  if (ok(hmac([...keys].sort(), "nullText"))) matches.push("nullAsText");
+  for (const k of keys) if (ok(hmac([...keys].filter((x) => x !== k).sort(), "default"))) matches.push(`excludeField:${k}`);
+  return matches;
+}
 function hashesMatch(expected, received) {
   if (!expected || !received || !/^[0-9a-f]+$/i.test(String(received))) return false;
   const expectedBuf = Buffer.from(String(expected), "hex");
@@ -228,9 +245,10 @@ module.exports = {
       console.error("[icici] STATUS signature mismatch", {
         responseCode: response?.responseCode, responseMessage: response?.respDescription || response?.responseMessage,
         hasSecureHash: Boolean(response?.secureHash),
+        matchingVariants: diagnoseHashVariants(response),
         fieldTypes: Object.fromEntries(Object.entries(response || {}).filter(([k]) => k !== "secureHash").map(([k, v]) => [k, v === null ? "null" : typeof v])),
       });
-      throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", iciciErrorCode: response?.responseCode });
+      throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", iciciErrorCode: response?.responseCode, hasSecureHash: Boolean(response?.secureHash), matchingVariants: diagnoseHashVariants(response), fieldNames: Object.keys(response || {}).filter((k) => k !== "secureHash").sort() });
     }
     return response;
   },

@@ -40,16 +40,21 @@ function isMockMode() {
 }
 function isEnabled() {
   if (isMockMode()) return true;
-  return Boolean(process.env.ICICI_MERCHANT_ID && process.env.ICICI_AGGREGATOR_ID && process.env.ICICI_SECRET_KEY && process.env.ICICI_RETURN_URL && getRedirectBridgeUrl());
+  return Boolean(process.env.ICICI_MERCHANT_ID && process.env.ICICI_AGGREGATOR_ID && getSecretKey() && process.env.ICICI_RETURN_URL && getRedirectBridgeUrl());
 }
 function assertConfigured() {
   const missing = [];
   if (!process.env.ICICI_MERCHANT_ID) missing.push("ICICI_MERCHANT_ID");
   if (!process.env.ICICI_AGGREGATOR_ID) missing.push("ICICI_AGGREGATOR_ID");
-  if (!process.env.ICICI_SECRET_KEY) missing.push("ICICI_SECRET_KEY");
+  if (!getSecretKey()) missing.push("ICICI_SECRET_KEY");
   if (!process.env.ICICI_RETURN_URL) missing.push("ICICI_RETURN_URL");
   if (!getRedirectBridgeUrl()) missing.push("ICICI_START_URL or ICICI_REDIRECT_BRIDGE_URL");
   if (missing.length) throw new ApiError(503, "ICICI Bank gateway is not configured", { gateway: "icici", environment: getEnvironment(), missing });
+}
+// Hosting panels often add stray whitespace/newlines or wrapping quotes when a secret is pasted.
+// Normalise so the HMAC key is exactly the key shown in the ICICI dashboard.
+function getSecretKey() {
+  return String(process.env.ICICI_SECRET_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 }
 function generateSecureHash(requestObj, secretKey) {
   const data = requestObj || {};
@@ -69,7 +74,7 @@ function hashesMatch(expected, received) {
 }
 function verifySecureHash(payload) {
   assertConfigured();
-  return hashesMatch(generateSecureHash(payload || {}, process.env.ICICI_SECRET_KEY), payload?.secureHash);
+  return hashesMatch(generateSecureHash(payload || {}, getSecretKey()), payload?.secureHash);
 }
 function makeMerchantTxnNo(orderNumber) {
   const value = String(orderNumber || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 20);
@@ -126,7 +131,7 @@ function getDiagnostics() {
   const fields = {
     merchantId: Boolean(process.env.ICICI_MERCHANT_ID),
     aggregatorId: Boolean(process.env.ICICI_AGGREGATOR_ID),
-    secretKey: Boolean(process.env.ICICI_SECRET_KEY),
+    secretKey: Boolean(getSecretKey()),
     returnUrl: Boolean(process.env.ICICI_RETURN_URL),
     startUrl: Boolean(getRedirectBridgeUrl()),
     adviceUrl: Boolean(process.env.ICICI_ADVICE_URL),
@@ -197,14 +202,14 @@ module.exports = {
     // calculation doesn't know about is a guaranteed hash mismatch (P1006).
     if (process.env.ICICI_ADDL_PARAM_1) request.addlParam1 = process.env.ICICI_ADDL_PARAM_1;
     if (process.env.ICICI_ADDL_PARAM_2) request.addlParam2 = process.env.ICICI_ADDL_PARAM_2;
-    request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
+    request.secureHash = generateSecureHash(request, getSecretKey());
     const response = await postJson(getSaleUrl(), request, "Initiate Sale");
     if (String(response.responseCode) !== "R1000") throw new ApiError(400, response.respDescription || `ICICI Bank could not initiate the payment (code: ${response.responseCode})`, { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", iciciErrorCode: response.responseCode });
     if (!response.redirectURI || !response.tranCtx) throw new ApiError(400, "ICICI Bank returned an incomplete payment redirect response", { gateway: "icici", environment: getEnvironment(), operation: "Initiate Sale", iciciErrorCode: response.responseCode });
     order.gatewayRedirectUrl = response.redirectURI;
     order.gatewayTranCtx = response.tranCtx;
     order.gatewayRequestHash = request.secureHash;
-    const bridgeRequestHash = crypto.createHmac("sha256", process.env.ICICI_SECRET_KEY).update(`${merchantTxnNo}|${response.tranCtx}`, "utf8").digest("hex");
+    const bridgeRequestHash = crypto.createHmac("sha256", getSecretKey()).update(`${merchantTxnNo}|${response.tranCtx}`, "utf8").digest("hex");
     return {
       requiresClientAction: true,
       gatewayOrderId: merchantTxnNo,
@@ -216,7 +221,7 @@ module.exports = {
     assertConfigured();
     if (!originalTxnNo) throw new ApiError(400, "ICICI original transaction reference is required");
     const request = { aggregatorID: process.env.ICICI_AGGREGATOR_ID, merchantId: process.env.ICICI_MERCHANT_ID, merchantTxnNo: String(originalTxnNo), originalTxnNo: String(originalTxnNo), transactionType: "STATUS" };
-    request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
+    request.secureHash = generateSecureHash(request, getSecretKey());
     const response = await postJson(getCommandUrl(), request, "STATUS");
     if (!verifySecureHash(response)) {
       // Diagnostics only: field names/types and hash presence. No secrets or hash values are logged.

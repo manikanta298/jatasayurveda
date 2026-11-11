@@ -29,33 +29,25 @@ const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigi
 
 // ICICI validates the Referer/origin domain, so helmet's default "no-referrer" would trigger "DOMAIN VALIDATION FAIL".
 app.use(helmet({ referrerPolicy: { policy: "strict-origin-when-cross-origin" } }));
-app.use(
-  cors({
-    origin(origin, callback) {
-      // Non-browser/server-to-server requests (including ICICI callbacks)
-      // have no Origin header and must not be rejected by CORS.
-      if (!origin) return callback(null, true);
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    // Server-to-server / non-browser requests carry no Origin header.
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn(`[cors] Rejected origin: ${origin}`);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+});
 
-      // ICICI browser/server callbacks may arrive with an opaque "null"
-      // origin (for example from a sandboxed/payment document). These
-      // endpoints do not rely on browser cookies for authorization: the
-      // return path verifies the ICICI response signature and performs a
-      // server-side STATUS check, while advice performs the same signature
-      // verification. Keep the exception narrowly scoped to those routes
-      // instead of trusting "null" for the whole API.
-      if (
-        origin === "null" &&
-        /^\/api\/v1\/orders\/icici\/(return|advice)$/.test(req.path)
-      ) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn(`[cors] Rejected origin: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
+// ICICI sends the customer's browser back to /icici/return (form POST from the
+// ICICI domain) and calls /icici/advice server-to-server. These are not
+// cross-origin XHR calls, so CORS must not apply. They are authenticated by
+// verifying the ICICI response signature plus a server-side STATUS check, not
+// by cookies, so skipping CORS here is safe and scoped to these two routes.
+const ICICI_CALLBACK_PATH = /^\/api\/v1\/orders\/icici\/(return|advice)\/?$/;
+app.use((req, res, next) =>
+  ICICI_CALLBACK_PATH.test(req.path) ? next() : corsMiddleware(req, res, next)
 );
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));

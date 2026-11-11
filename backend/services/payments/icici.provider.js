@@ -218,7 +218,15 @@ module.exports = {
     const request = { aggregatorID: process.env.ICICI_AGGREGATOR_ID, merchantId: process.env.ICICI_MERCHANT_ID, merchantTxnNo: String(originalTxnNo), originalTxnNo: String(originalTxnNo), transactionType: "STATUS" };
     request.secureHash = generateSecureHash(request, process.env.ICICI_SECRET_KEY);
     const response = await postJson(getCommandUrl(), request, "STATUS");
-    if (!verifySecureHash(response)) throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", iciciErrorCode: response?.responseCode });
+    if (!verifySecureHash(response)) {
+      // Diagnostics only: field names/types and hash presence. No secrets or hash values are logged.
+      console.error("[icici] STATUS signature mismatch", {
+        responseCode: response?.responseCode, responseMessage: response?.respDescription || response?.responseMessage,
+        hasSecureHash: Boolean(response?.secureHash),
+        fieldTypes: Object.fromEntries(Object.entries(response || {}).filter(([k]) => k !== "secureHash").map(([k, v]) => [k, v === null ? "null" : typeof v])),
+      });
+      throw new ApiError(400, "ICICI Bank status response signature verification failed", { gateway: "icici", environment: getEnvironment(), operation: "STATUS", iciciErrorCode: response?.responseCode });
+    }
     return response;
   },
   async verifyPayment({ order, payload }) {

@@ -165,3 +165,12 @@ test("invalid callback signatures are rejected", async () => {
     /signature verification failed/
   );
 });
+
+test("STATUS reply with an unsigned boolean field (oth_charge) still verifies; tampering is rejected", () => {
+  const body = { merchantId: "1", amount: "1.00", txnStatus: "SUC", txnResponseCode: "0000", responseCode: "000", oth_charge: false };
+  const { oth_charge, ...signedFields } = body; // ICICI signs everything except the boolean
+  const reply = { ...body, secureHash: provider.generateSecureHash(signedFields, TEST_KEY) };
+  assert.equal(provider.verifySecureHash(reply), true);
+  assert.equal(provider.verifySecureHash({ ...reply, amount: "9999.00" }), false);
+  assert.equal(provider.verifySecureHash({ ...reply, txnStatus: "REJ" }), false);
+});

@@ -56,9 +56,9 @@ function assertConfigured() {
 function getSecretKey() {
   return String(process.env.ICICI_SECRET_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 }
-function generateSecureHash(requestObj, secretKey) {
+function generateSecureHash(requestObj, secretKey, { skipBooleans = false } = {}) {
   const data = requestObj || {};
-  const hashText = Object.keys(data).sort().filter((key) => key !== "secureHash").map((key) => {
+  const hashText = Object.keys(data).sort().filter((key) => key !== "secureHash" && !(skipBooleans && typeof data[key] === "boolean")).map((key) => {
     const value = data[key];
     if (value !== undefined && value !== null && typeof value === "object") return JSON.stringify(value);
     if (value !== undefined && value !== null) return String(value);
@@ -91,7 +91,9 @@ function hashesMatch(expected, received) {
 }
 function verifySecureHash(payload) {
   assertConfigured();
-  return hashesMatch(generateSecureHash(payload || {}, getSecretKey()), payload?.secureHash);
+  // ICICI's STATUS reply contains a JSON boolean (oth_charge) that is NOT part of its signature
+  // (confirmed against live responses), so booleans are left out when verifying replies.
+  return hashesMatch(generateSecureHash(payload || {}, getSecretKey(), { skipBooleans: true }), payload?.secureHash);
 }
 function makeMerchantTxnNo(orderNumber) {
   const value = String(orderNumber || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 20);

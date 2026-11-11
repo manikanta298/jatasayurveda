@@ -32,8 +32,18 @@ const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigi
  * Requests without an Origin header (server-to-server calls, ICICI callbacks,
  * health checks and some non-browser clients) are allowed through.
  */
+// ICICI posts the customer's browser back to /icici/return (Origin = ICICI's
+// domain) and calls /icici/advice server-to-server. These routes use no cookie
+// auth: they are protected by ICICI response-signature verification plus a
+// server-side STATUS check, so CSRF origin checks do not apply to them.
+const ICICI_CALLBACK_PATH = /^\/api\/v1\/orders\/icici\/(return|advice)\/?$/;
+
 module.exports = function verifyOrigin(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    return next();
+  }
+
+  if (ICICI_CALLBACK_PATH.test(req.originalUrl.split("?")[0])) {
     return next();
   }
 
